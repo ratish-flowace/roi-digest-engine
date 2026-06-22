@@ -1,0 +1,1856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flowace Demo · Flowace ROI Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   FLOWACE PRODUCTIVITY DASHBOARD
+   Design tokens
+   ============================================================ */
+:root {
+  --bg:           #0F1115;
+  --bg-panel:     #1A1D23;
+  --bg-raised:    #20242C;
+  --bg-hover:     #262B35;
+  --border:       #2A2F38;
+  --border-soft:  #1F2329;
+
+  --teal:         #00D4AA;
+  --teal-dim:     rgba(0, 212, 170, 0.12);
+  --teal-line:    rgba(0, 212, 170, 0.35);
+  --orange:       #F25425;
+  --orange-dim:   rgba(242, 84, 37, 0.12);
+  --orange-line:  rgba(242, 84, 37, 0.35);
+  --blue:         #4A90E2;
+  --blue-dim:     rgba(74, 144, 226, 0.12);
+  --red:          #E74C3C;
+  --purple:       #A78BFA;
+
+  --text:         #FFFFFF;
+  --text-soft:    #D4D8DD;
+  --text-muted:   #8A929E;
+  --text-dim:     #5A6270;
+
+  --shadow-card:  0 1px 0 rgba(255,255,255,0.03), 0 8px 24px rgba(0,0,0,0.25);
+  --shadow-elev:  0 1px 0 rgba(255,255,255,0.05), 0 16px 48px rgba(0,0,0,0.45);
+
+  --radius-sm:    6px;
+  --radius:       10px;
+  --radius-lg:    14px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 56px;
+  --space-10: 80px;
+}
+
+/* ============================================================
+   Reset + base
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 400;
+  line-height: 1.5;
+  min-height: 100vh;
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+}
+
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+
+/* Mono for numbers */
+.num { font-family: 'JetBrains Mono', ui-monospace, monospace; font-feature-settings: 'tnum'; letter-spacing: -0.01em; }
+
+/* ============================================================
+   Layout
+   ============================================================ */
+.app {
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 32px 48px 80px;
+}
+
+/* ============================================================
+   Top bar
+   ============================================================ */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 40px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.logo img {
+  height: 32px;
+  width: auto;
+  display: block;
+}
+
+.topbar-right { display: flex; align-items: center; gap: 16px; font-size: 12px; color: var(--text-muted); }
+.topbar-right .client {
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.confidential {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--orange);
+  padding: 4px 8px;
+  border: 1px solid var(--orange-line);
+  border-radius: 4px;
+  background: var(--orange-dim);
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   Hero
+   ============================================================ */
+.hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 40px;
+  align-items: end;
+  margin-bottom: 56px;
+}
+.hero-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--teal);
+  margin-bottom: 14px;
+}
+.hero h1 {
+  font-size: 64px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.0;
+  margin-bottom: 24px;
+}
+.hero h1 .accent { color: var(--teal); }
+.hero p {
+  font-size: 16px;
+  color: var(--text-soft);
+  max-width: 720px;
+  line-height: 1.65;
+}
+.hero p .strong { color: var(--text); font-weight: 600; }
+
+.hero-meta {
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.7;
+  padding-bottom: 8px;
+}
+.hero-meta .meta-row { display: flex; justify-content: flex-end; gap: 6px; align-items: center; }
+.hero-meta .meta-label { color: var(--text-dim); font-weight: 500; }
+.hero-meta .meta-value { color: var(--text); font-weight: 500; }
+.hero-meta .dot { color: var(--text-dim); }
+
+/* ============================================================
+   Section
+   ============================================================ */
+.section {
+  margin-bottom: 56px;
+}
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.section-sub {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* ============================================================
+   KPI cards row
+   ============================================================ */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+.kpi {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 18px 16px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.kpi::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent, var(--text-dim));
+  opacity: 0.6;
+}
+.kpi:hover { transform: translateY(-2px); border-color: var(--border); }
+.kpi-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.kpi-value {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--accent, var(--text));
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.kpi-value.compact { font-size: 18px; letter-spacing: -0.01em; white-space: nowrap; }
+.kpi-sub { font-size: 11px; color: var(--text-dim); }
+
+.kpi.teal { --accent: var(--teal); }
+.kpi.orange { --accent: var(--orange); }
+.kpi.blue { --accent: var(--blue); }
+.kpi.white { --accent: var(--text); }
+
+/* ============================================================
+   Working hours timeline (signature element)
+   ============================================================ */
+.timeline-wrap {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+}
+.timeline-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.timeline-head h3 {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.timeline-head .timeline-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.timeline-tagline {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+  max-width: 720px;
+}
+.timeline {
+  position: relative;
+  padding: 16px 0 8px;
+}
+.timeline-axis {
+  position: relative;
+  height: 28px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 8px;
+}
+.timeline-tick {
+  position: absolute;
+  bottom: 0;
+  font-size: 10px;
+  color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+  transform: translateX(-50%);
+}
+.timeline-tick::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  width: 1px;
+  height: 4px;
+  background: var(--text-dim);
+  transform: translateX(-50%);
+}
+.timeline-bar {
+  display: grid;
+  grid-template-columns: 140px 1fr 150px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.timeline-bar:last-child { border-bottom: none; }
+.tb-name { font-size: 12px; color: var(--text-soft); font-weight: 500; }
+.tb-track {
+  position: relative;
+  height: 12px;
+  background: var(--border-soft);
+  border-radius: 3px;
+}
+.tb-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(90deg, var(--teal) 0%, rgba(0,212,170,0.5) 100%);
+  border-radius: 3px;
+  transition: opacity 0.2s ease;
+}
+.tb-fill.watch { background: linear-gradient(90deg, var(--orange) 0%, rgba(255,107,53,0.5) 100%); }
+.tb-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  text-align: right;
+}
+.tb-meta strong { color: var(--text); font-weight: 500; }
+.timeline-legend {
+  display: flex;
+  justify-content: flex-end;
+  gap: 20px;
+  margin-top: 16px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.timeline-legend .swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+/* ============================================================
+   Drill-down navigation
+   ============================================================ */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.breadcrumb .crumb {
+  cursor: pointer;
+  transition: color 0.15s ease;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-left: -8px;
+}
+.breadcrumb .crumb:hover { color: var(--teal); background: var(--teal-dim); }
+.breadcrumb .crumb.active { color: var(--text); cursor: default; }
+.breadcrumb .crumb.active:hover { background: transparent; color: var(--text); }
+.breadcrumb .sep { color: var(--text-dim); }
+
+/* ============================================================
+   Teams grid
+   ============================================================ */
+.teams-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.team-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 20px 18px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  position: relative;
+  overflow: hidden;
+}
+.team-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent, var(--text-dim));
+  transition: width 0.18s ease;
+}
+.team-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent, var(--border));
+  background: var(--bg-raised);
+}
+.team-card:hover::before { width: 5px; }
+.team-card.strong { --accent: var(--teal); }
+.team-card.ok { --accent: var(--blue); }
+.team-card.watch { --accent: var(--orange); }
+
+.tc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 16px;
+}
+.tc-name {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.tc-headcount {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+.tc-headcount strong { color: var(--text); font-weight: 600; }
+.tc-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+}
+.tc-metric-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+.tc-metric-value {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.tc-metric.accent .tc-metric-value { color: var(--accent); }
+.tc-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.tc-status-pill {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 3px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  background: var(--bg);
+}
+.tc-card-arrow {
+  font-size: 18px;
+  color: var(--text-dim);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+.team-card:hover .tc-card-arrow { color: var(--accent); transform: translateX(4px); }
+
+/* ============================================================
+   Team detail (individuals table)
+   ============================================================ */
+.team-detail {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.td-head {
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.td-back {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 6px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: -6px;
+}
+.td-back:hover { color: var(--teal); background: var(--teal-dim); }
+.td-title-row { display: flex; justify-content: space-between; align-items: end; gap: 24px; }
+.td-title {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.td-summary {
+  display: flex;
+  gap: 28px;
+  margin-top: 16px;
+}
+.td-stat .td-stat-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+.td-stat .td-stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.td-stat.teal .td-stat-value { color: var(--teal); }
+.td-stat.orange .td-stat-value { color: var(--orange); }
+
+.individuals-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.individuals-table thead th {
+  text-align: left;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 14px 16px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.individuals-table thead th.num-col { text-align: right; }
+.individuals-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text-soft);
+  vertical-align: middle;
+}
+.individuals-table tbody td.num-col { text-align: right; font-family: 'JetBrains Mono', monospace; }
+.individuals-table tbody tr:hover td { background: rgba(255,255,255,0.015); }
+.individuals-table tbody tr:last-child td { border-bottom: none; }
+.ind-name { font-weight: 500; color: var(--text); }
+.ind-rank {
+  display: inline-block;
+  width: 22px;
+  font-size: 10px;
+  color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace;
+  margin-right: 6px;
+}
+.metric-bar {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 4px;
+  background: var(--border-soft);
+  border-radius: 2px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.metric-bar-fill {
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--teal);
+}
+.metric-bar-fill.orange { background: var(--orange); }
+
+.td-footer {
+  padding: 16px 28px;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg-raised);
+  border-top: 1px solid var(--border-soft);
+}
+
+/* ============================================================
+   Benchmark widget
+   ============================================================ */
+.bench-wrap {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+}
+.bench-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  margin-bottom: 8px;
+}
+.bench-head h3 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.bench-tagline {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 28px;
+  max-width: 720px;
+}
+
+.bench-row {
+  display: grid;
+  grid-template-columns: 200px 1fr 140px;
+  align-items: center;
+  gap: 24px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.bench-row:last-child { border-bottom: none; }
+.bench-metric {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.bench-metric small {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.bench-track-wrap { position: relative; padding: 22px 0 22px; }
+.bench-track {
+  position: relative;
+  height: 36px;
+  background: var(--bg-raised);
+  border-radius: 6px;
+  overflow: visible;
+}
+.bench-track-inner-bg {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background: var(--bg-raised);
+  overflow: hidden;
+}
+.bench-track-grid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+}
+.bench-track-grid > div {
+  border-right: 1px solid var(--border-soft);
+}
+.bench-marker {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 2px;
+  transform: translateX(-50%);
+}
+.bench-marker.medibuddy {
+  background: var(--teal);
+  box-shadow: 0 0 0 4px rgba(0, 212, 170, 0.18);
+  z-index: 3;
+}
+.bench-marker.industry { background: var(--text-muted); z-index: 1; opacity: 0.85; }
+.bench-marker.top { background: var(--purple); z-index: 2; opacity: 0.9; }
+.bench-marker.medibuddy.behind { background: var(--orange); box-shadow: 0 0 0 4px rgba(242, 84, 37, 0.18); }
+.bench-label {
+  position: absolute;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  font-family: 'JetBrains Mono', monospace;
+  pointer-events: none;
+}
+.bench-label.top-label { top: -18px; }
+.bench-label.bottom-label { top: calc(100% + 6px); }
+.bench-label.bottom-label.stagger { top: calc(100% + 20px); }
+.bench-label.medibuddy { color: var(--teal); font-weight: 700; }
+.bench-label.medibuddy.behind { color: var(--orange); font-weight: 700; }
+.bench-label.industry { color: var(--text-muted); }
+.bench-label.top { color: var(--purple); }
+
+.bench-status {
+  text-align: right;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.bench-status.ahead { color: var(--teal); }
+.bench-status.par { color: var(--blue); }
+.bench-status.behind { color: var(--orange); }
+
+.bench-legend {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.bench-legend .legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.bench-bottomline {
+  margin-top: 24px;
+  padding: 18px 22px;
+  background: linear-gradient(135deg, rgba(0,212,170,0.08), transparent);
+  border: 1px solid var(--teal-line);
+  border-radius: var(--radius-sm);
+}
+.bench-bottomline .bb-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--teal);
+  margin-bottom: 6px;
+}
+.bench-bottomline .bb-text {
+  font-size: 13px;
+  color: var(--text-soft);
+  line-height: 1.6;
+}
+.bench-bottomline .bb-text .strong { color: var(--text); font-weight: 600; }
+
+/* ============================================================
+   Footer
+   ============================================================ */
+.footer {
+  margin-top: 80px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.footer-compliance {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.compliance-badge {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  padding: 3px 7px;
+  border-radius: 3px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   Quadrant analysis section
+   ============================================================ */
+.quadrant-wrap {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+}
+.quadrant-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.quadrant-head h3 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.quadrant-tagline {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  max-width: 720px;
+}
+.quadrant-mode-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 16px 0 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.quadrant-mode-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.quadrant-mode-label strong { color: var(--text); font-weight: 600; }
+.quadrant-back {
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px 10px 6px 6px;
+  border-radius: 6px;
+  margin-left: -6px;
+  transition: all 0.15s ease;
+}
+.quadrant-back:hover { color: var(--teal); background: var(--teal-dim); }
+.quadrant-grid {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 32px;
+  align-items: start;
+}
+.quadrant-plot {
+  position: relative;
+}
+.quadrant-plot svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  user-select: none;
+}
+.quadrant-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.qstat {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--qcolor);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  transition: border-color 0.15s ease;
+}
+.qstat.stars { --qcolor: var(--teal); }
+.qstat.efficient { --qcolor: var(--blue); }
+.qstat.busy { --qcolor: var(--orange); }
+.qstat.risk { --qcolor: var(--red); }
+.qstat-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+.qstat-name {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--qcolor);
+}
+.qstat-pct {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+}
+.qstat-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.qstat-bar {
+  margin: 10px 0 6px;
+  height: 4px;
+  background: var(--border-soft);
+  border-radius: 2px;
+  position: relative;
+}
+.qstat-bar-fill {
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%;
+  background: var(--qcolor);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.qstat-bar-target {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 10px;
+  background: var(--text-soft);
+  opacity: 0.7;
+}
+.qstat-insight {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+.qstat-insight .delta-up { color: var(--teal); font-weight: 600; }
+.qstat-insight .delta-down { color: var(--orange); font-weight: 600; }
+.quadrant-bottomline {
+  margin-top: 20px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(0,212,170,0.06), transparent);
+  border: 1px solid var(--teal-line);
+  border-radius: var(--radius-sm);
+}
+.quadrant-bottomline .bb-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--teal);
+  margin-bottom: 6px;
+}
+.quadrant-bottomline .bb-text {
+  font-size: 13px;
+  color: var(--text-soft);
+  line-height: 1.6;
+}
+.quadrant-bottomline .bb-text .strong { color: var(--text); font-weight: 600; }
+
+/* SVG elements */
+.qquad-bg.stars { fill: rgba(0, 212, 170, 0.045); }
+.qquad-bg.efficient { fill: rgba(74, 144, 226, 0.045); }
+.qquad-bg.busy { fill: rgba(242, 84, 37, 0.045); }
+.qquad-bg.risk { fill: rgba(231, 76, 60, 0.045); }
+.qquad-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.qquad-label.stars { fill: var(--teal); }
+.qquad-label.efficient { fill: var(--blue); }
+.qquad-label.busy { fill: var(--orange); }
+.qquad-label.risk { fill: var(--red); }
+.qaxis-line {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.qaxis-threshold {
+  stroke: var(--text-dim);
+  stroke-width: 1;
+  stroke-dasharray: 5 4;
+  opacity: 0.4;
+}
+.qaxis-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  fill: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.qaxis-tick {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  fill: var(--text-dim);
+}
+.qdot {
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.15s ease;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+.qdot:hover {
+  filter: brightness(1.3) drop-shadow(0 0 6px currentColor);
+}
+.qdot.stars { fill: var(--teal); }
+.qdot.efficient { fill: var(--blue); }
+.qdot.busy { fill: var(--orange); }
+.qdot.risk { fill: var(--red); }
+.qdot-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  fill: var(--text-soft);
+  pointer-events: none;
+}
+.qdot.ind { opacity: 0.7; }
+.qdot.ind:hover { opacity: 1; }
+
+/* ============================================================
+   Utility / animations
+   ============================================================ */
+.fade-in { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 1100px) {
+  .kpi-row { grid-template-columns: repeat(3, 1fr); }
+  .teams-grid { grid-template-columns: repeat(2, 1fr); }
+  .hero h1 { font-size: 48px; }
+}
+@media (max-width: 720px) {
+  .app { padding: 24px 20px 60px; }
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .teams-grid { grid-template-columns: 1fr; }
+  .hero { grid-template-columns: 1fr; }
+  .hero-meta { text-align: left; }
+  .hero-meta .meta-row { justify-content: flex-start; }
+  .hero h1 { font-size: 36px; }
+  .timeline-bar { grid-template-columns: 100px 1fr 90px; }
+  .bench-row { grid-template-columns: 1fr; gap: 12px; }
+}
+
+/* Flowace logo */
+.logo { display:flex;align-items:center;gap:12px; }
+
+/* ── Responsive overrides ──────────────────────────────────────────────── */
+.rec-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:12px; }
+@media(max-width:900px) { .rec-grid { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:560px) { .rec-grid { grid-template-columns:1fr; } }
+
+.quadrant-grid { grid-template-columns:1fr 340px; }
+@media(max-width:960px) { .quadrant-grid { grid-template-columns:1fr; } }
+
+.at-risk-row { display:grid;grid-template-columns:200px 1fr 130px;align-items:center;gap:16px;padding:13px 0;border-bottom:1px solid #1F2329; }
+@media(max-width:700px) { .at-risk-row { grid-template-columns:1fr auto;gap:10px; } .at-risk-detail { display:none; } }
+@media(max-width:420px) { .at-risk-row { grid-template-columns:1fr; } }
+
+@media(max-width:600px) { .app { padding:20px 16px 56px; } }
+@media(max-width:700px) { .topbar { flex-direction:column;align-items:flex-start;gap:12px; } .topbar-right { flex-wrap:wrap;gap:8px; } }
+@media(max-width:960px) { h1 { font-size:48px; } }
+@media(max-width:700px) { h1 { font-size:36px; } }
+@media(max-width:480px) { h1 { font-size:28px; } }
+@media(max-width:700px) { .hero { grid-template-columns:1fr; } .hero-meta { text-align:left; } }
+@media(max-width:1100px) { .kpi-row { grid-template-columns:repeat(3,1fr); } }
+@media(max-width:640px)  { .kpi-row { grid-template-columns:repeat(2,1fr); } .kpi-value { font-size:22px; } }
+@media(max-width:380px)  { .kpi-row { grid-template-columns:1fr; } }
+@media(max-width:700px) { .timeline-bar { grid-template-columns:90px 1fr;gap:8px; } .tb-meta { display:none; } }
+@media(max-width:420px) { .timeline-bar { grid-template-columns:1fr; } .tb-track { display:none; } }
+@media(max-width:900px) { .teams-grid { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:560px) { .teams-grid { grid-template-columns:1fr; } }
+@media(max-width:700px) { .td-summary { flex-wrap:wrap;gap:12px 20px; } .td-title { font-size:20px; } }
+@media(max-width:800px) { .team-detail { overflow-x:auto; } .individuals-table { min-width:560px; } }
+.footer { flex-wrap:wrap;gap:12px; }
+@media(max-width:720px) { .footer-compliance { flex-wrap:wrap;gap:6px; } .footer-compliance span:first-child { width:100%; } }
+@media(max-width:600px) { .footer { flex-direction:column;align-items:flex-start;gap:10px;margin-top:48px; } }
+@media(max-width:600px) { .exec-summary-inner { padding:18px !important; } }
+
+</style>
+</head>
+<body>
+<div class="app">
+</head>
+<body>
+<div class="app">
+
+  <!-- ─── Top bar ─── -->
+  <div class="topbar">
+    <div class="logo">
+      <img src="data:image/png;base64,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" alt="flowace.ai">
+    </div>
+    <div class="topbar-right">
+      <span class="client">Flowace Demo</span>
+      <span class="confidential">Confidential</span>
+    </div>
+  </div>
+
+  <!-- ─── Hero ─── -->
+  <div class="hero">
+    <div>
+      <div class="hero-eyebrow">Workforce Productivity Review</div>
+      <h1>90.9% productivity.<br><span class="accent">25 people. 30 days.</span></h1>
+      <p>HR and Sales set the pace at 99.1% and 95.7% productivity, proving high performance is achievable. With 553.5 hours of recoverable idle time, the organization can unlock over 15 additional productive workweeks without hiring.</p><span id="hero-hours" style="display:none"></span>
+    </div>
+    <div class="hero-meta">
+      <div class="meta-row"><span class="meta-label">Period</span><span class="dot">·</span><span class="meta-value" id="meta-period"></span></div>
+      <div class="meta-row"><span class="meta-label">Duration</span><span class="dot">·</span><span class="meta-value">30 days</span></div>
+      <div class="meta-row"><span class="meta-label">Active members</span><span class="dot">·</span><span class="meta-value" id="meta-members"></span></div>
+      <div class="meta-row"><span class="meta-label">Generated</span><span class="dot">·</span><span class="meta-value">17 Jun 2026</span></div>
+    </div>
+  </div>
+
+  <!-- ─── Organizational snapshot (KPI cards) ─── -->
+<div class="section" style="margin-bottom:40px"><div class="section-head"><div class="section-title">Executive Summary</div><div class="section-sub">What leadership needs to know</div></div><div class="exec-summary-inner" style="background:#1A1D23;border:1px solid #2A2F38;border-radius:10px;padding:28px 32px"><div style="font-size:15px;color:#D4D8DD;line-height:1.8;max-width:900px">From May 18 to June 16, 2026, 25 active employees maintained strong 90.9% productivity with 82.2% activity. HR leads at 99.1% productivity, setting a benchmark for the organization. The Design team's 74.1% productivity and 10 unassigned employees in 'No Team' require immediate attention. Recovering 553.5 idle hours could add 15+ productive workweeks. The priority action is addressing the 8 at-risk employees and clarifying team assignments.</div></div></div><div style="margin-bottom:40px;padding:18px 24px;background:rgba(0,212,170,.07);border:1px solid rgba(0,212,170,.3);border-radius:10px"><div style="font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#00D4AA;margin-bottom:8px">KEY TAKEAWAY</div><div style="font-size:14px;color:#D4D8DD;line-height:1.6">Reassigning 10 'No Team' employees and coaching 4 high-severity at-risk individuals can recover 300+ idle hours monthly.</div><div style="font-size:12px;color:#8A929E;margin-top:6px">Recovering 553.5 idle hours monthly equals 15+ productive workweeks, potentially worth $13,800+ in recovered labor value at a $25/hour blended rate.</div></div><div class="section"><div class="section-head"><div class="section-title">What To Do Next</div><div class="section-sub">Three specific actions, ordered by impact</div></div><div class="rec-grid"><div style="background:#1A1D23;border:1px solid #2A2F38;border-radius:10px;padding:18px;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:0;right:0;height:2px;background:#00D4AA;opacity:.6"></div><div style="font-size:28px;font-weight:700;color:rgba(0,212,170,.2);font-family:'JetBrains Mono',monospace;line-height:1;margin-bottom:10px">01</div><div style="font-size:13px;color:#D4D8DD;line-height:1.6">Immediately assign all 10 'No Team' employees to proper teams to reduce 246h 43m idle and improve accountability.</div></div><div style="background:#1A1D23;border:1px solid #2A2F38;border-radius:10px;padding:18px;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:0;right:0;height:2px;background:#00D4AA;opacity:.6"></div><div style="font-size:28px;font-weight:700;color:rgba(0,212,170,.2);font-family:'JetBrains Mono',monospace;line-height:1;margin-bottom:10px">02</div><div style="font-size:13px;color:#D4D8DD;line-height:1.6">Launch performance coaching for Krithikaa Ramasubramanian (74.1% prod) and Ratish Jain (62.1% prod) — the two highest-severity cases.</div></div><div style="background:#1A1D23;border:1px solid #2A2F38;border-radius:10px;padding:18px;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:0;right:0;height:2px;background:#00D4AA;opacity:.6"></div><div style="font-size:28px;font-weight:700;color:rgba(0,212,170,.2);font-family:'JetBrains Mono',monospace;line-height:1;margin-bottom:10px">03</div><div style="font-size:13px;color:#D4D8DD;line-height:1.6">Investigate Directors' 51.3% activity rate to determine if meeting-heavy schedules require different tracking or workload adjustment.</div></div></div></div>  <div class="section">
+    <div class="section-head">
+      <div class="section-title">Organizational Snapshot</div>
+      <div class="section-sub">Aggregated across 25 employees, 9 teams · 18 May 2026 – 16 June 2026</div>
+    </div>
+    <div class="kpi-row" id="kpi-row"></div>
+  </div>
+
+  <!-- ─── Working hours timeline (signature element) ─── -->
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">Working Hours</div>
+      <div class="section-sub">Average shift profile, ordered by start time</div>
+    </div>
+    <div class="timeline-wrap">
+      <div class="timeline-head">
+        <h3>Team working hours across the day</h3>
+        <div class="timeline-sub">avg start → avg logout · width represents team headcount</div>
+      </div>
+      <div class="timeline-tagline">
+        Most teams converge around a 10 AM – 6 PM core. Earlier-starting teams tend to have higher activity rates; late-shift Concierge runs a separate rhythm. This is the rhythm benchmark for any shift-redesign conversation.
+      </div>
+      <div class="timeline" id="timeline"></div>
+      <div class="timeline-legend">
+        <span><span class="swatch" style="background:var(--teal)"></span>On-par engagement</span>
+        <span><span class="swatch" style="background:var(--orange)"></span>Below-average activity</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Teams (drill-down) ─── -->
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">Team Performance · Drill-down</div>
+      <div class="section-sub">Click any team to see individual-level data</div>
+    </div>
+    <div class="breadcrumb" id="breadcrumb">
+      <span class="crumb active">Organization</span>
+    </div>
+    <div id="drill-content"></div>
+  </div>
+
+<div class="section" id="at-risk-section" style="display:none"><div class="section-head"><div class="section-title">Employees Needing Attention</div><div class="section-sub" id="at-risk-sub"></div></div><div style="background:#1A1D23;border:1px solid rgba(242,84,37,.3);border-radius:10px;padding:0 24px"><div id="at-risk-rows"></div><div id="at-risk-toggle" style="display:none;padding:14px 0;border-top:1px solid #1F2329;text-align:center"><button onclick="toggleAtRisk()" style="background:none;border:1px solid #2A2F38;color:#8A929E;font-size:12px;padding:6px 20px;border-radius:6px;cursor:pointer;font-family:inherit" id="at-risk-toggle-btn"></button></div></div></div>
+  <!-- ─── Quadrant analysis ─── -->
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title">Quadrant Analysis · Performance Distribution</div>
+      <div class="section-sub">Productivity × Activity matrix · click any team for individual drill-down</div>
+    </div>
+    <div class="quadrant-wrap">
+      <div class="quadrant-head">
+        <h3 id="qhead-title">How your teams distribute across the matrix</h3>
+      </div>
+      <div class="quadrant-tagline" id="qhead-tagline">
+        Each team plotted by activity (x) against productivity (y). Thresholds set at Flowace Demo's organizational average — quadrants show team performance relative to your own baseline. Dot size reflects team headcount.
+      </div>
+      <div class="quadrant-mode-bar">
+        <div class="quadrant-mode-label" id="qmode-label"><strong>Team view</strong> · 14 teams plotted</div>
+        <div id="qmode-back" style="display:none" class="quadrant-back">← Back to teams</div>
+      </div>
+      <div class="quadrant-grid">
+        <div class="quadrant-plot" id="quadrant-plot"></div>
+        <div class="quadrant-stats" id="quadrant-stats"></div>
+      </div>
+      <div class="quadrant-bottomline" id="quadrant-bottomline"></div>
+    </div>
+  </div>
+
+  <!-- ─── Footer ─── -->
+  <div class="footer">
+    <div>Prepared for Flowace Demo leadership · Confidential · 17 Jun 2026</div>
+    <div class="footer-compliance">
+      <span style="margin-right:8px;color:var(--text-muted)">Flowace certified:</span>
+      <span class="compliance-badge">ISO 27001</span>
+      <span class="compliance-badge">SOC 2 Type 1</span>
+      <span class="compliance-badge">GDPR</span>
+      <span class="compliance-badge">HIPAA</span>
+    </div>
+  </div>
+
+</div>
+</div>
+<script id="data-blob" type="application/json">{"org_name":"Flowace Demo","period_start":"18 May 2026","period_end":"16 June 2026","period_days":30,"generated_at":"17 Jun 2026","inactive_count":12,"organization":{"n":25,"logged":3724.96,"active":3051.6,"idle":673.36,"productive":2779.51,"unproductive":82.25,"neutral":189.83,"activity_pct":82.2,"productivity_pct":90.9,"idle_pct":18.1,"unproductive_pct":2.7,"avg_start_min":626.3,"avg_end_min":1102.7},"teams":[{"name":"HR","n":1,"logged":196.99,"active":187.44,"idle":9.55,"productive":185.76,"unproductive":0.32,"neutral":1.36,"activity_pct":95.2,"productivity_pct":99.1,"idle_pct":4.8,"unproductive_pct":0.2,"avg_start_min":593.2,"avg_end_min":1128.7,"individuals":[{"name":"Shalini  Mittal","logged":196.99,"active":187.44,"idle":9.55,"productive":185.76,"unproductive":0.32,"neutral":1.36,"activity_pct":95.15,"productivity_pct":99.1,"avg_start_min":593.2,"avg_end_min":1128.7,"days":21.5}],"_prod_delta":8.2,"_activity_delta":13.0},{"name":"Sales","n":3,"logged":542.71,"active":489.19,"idle":53.51,"productive":468.2,"unproductive":9.69,"neutral":11.31,"activity_pct":90.0,"productivity_pct":95.7,"idle_pct":9.9,"unproductive_pct":2.0,"avg_start_min":576.9,"avg_end_min":1143.2,"individuals":[{"name":"Jatin  Chandwani","logged":177.32,"active":161.81,"idle":15.52,"productive":157.65,"unproductive":0.74,"neutral":3.41,"activity_pct":91.25,"productivity_pct":97.43,"avg_start_min":551.4,"avg_end_min":1123.8,"days":18.5},{"name":"Nandini Tamrakar","logged":175.18,"active":146.08,"idle":29.1,"productive":138.96,"unproductive":4.08,"neutral":3.04,"activity_pct":83.39,"productivity_pct":95.13,"avg_start_min":615.8,"avg_end_min":1159.1,"days":20.5},{"name":"Aanchal Vajpayee","logged":190.21,"active":181.31,"idle":8.9,"productive":171.59,"unproductive":4.87,"neutral":4.85,"activity_pct":95.32,"productivity_pct":94.64,"avg_start_min":563.4,"avg_end_min":1146.6,"days":22.0}],"_prod_delta":4.8,"_activity_delta":7.8},{"name":"Digital Marketing","n":1,"logged":190.21,"active":181.31,"idle":8.9,"productive":171.59,"unproductive":4.87,"neutral":4.85,"activity_pct":95.3,"productivity_pct":94.6,"idle_pct":4.7,"unproductive_pct":2.7,"avg_start_min":563.4,"avg_end_min":1146.6,"individuals":[{"name":"Aanchal Vajpayee","logged":190.21,"active":181.31,"idle":8.9,"productive":171.59,"unproductive":4.87,"neutral":4.85,"activity_pct":95.32,"productivity_pct":94.64,"avg_start_min":563.4,"avg_end_min":1146.6,"days":22.0}],"_prod_delta":3.7,"_activity_delta":13.1},{"name":"Directors","n":1,"logged":147.99,"active":75.93,"idle":72.05,"productive":71.03,"unproductive":0.78,"neutral":4.12,"activity_pct":51.3,"productivity_pct":93.5,"idle_pct":48.7,"unproductive_pct":1.0,"avg_start_min":671.6,"avg_end_min":1193.0,"individuals":[{"name":"Varun Kodnani","logged":147.99,"active":75.93,"idle":72.05,"productive":71.03,"unproductive":0.78,"neutral":4.12,"activity_pct":51.31,"productivity_pct":93.54,"avg_start_min":671.6,"avg_end_min":1193.0,"days":20.0}],"_prod_delta":2.6,"_activity_delta":-30.9},{"name":"Web Developer & Mobile team","n":4,"logged":687.02,"active":591.16,"idle":95.86,"productive":543.49,"unproductive":23.2,"neutral":24.47,"activity_pct":85.4,"productivity_pct":91.8,"idle_pct":14.0,"unproductive_pct":3.9,"avg_start_min":539.9,"avg_end_min":1189.6,"individuals":[{"name":"Amit Yadav","logged":219.11,"active":201.33,"idle":17.78,"productive":198.17,"unproductive":2.55,"neutral":0.62,"activity_pct":91.89,"productivity_pct":98.43,"avg_start_min":597.0,"avg_end_min":1215.9,"days":22.0},{"name":"Aniket Bhansali","logged":35.13,"active":30.28,"idle":4.85,"productive":29.32,"unproductive":0.44,"neutral":0.52,"activity_pct":86.18,"productivity_pct":96.85,"avg_start_min":757.6,"avg_end_min":1091.6,"days":6.0},{"name":"Abhishek Patel","logged":236.14,"active":227.1,"idle":9.04,"productive":211.75,"unproductive":4.27,"neutral":11.08,"activity_pct":96.17,"productivity_pct":93.24,"avg_start_min":652.2,"avg_end_min":1201.0,"days":21.0},{"name":"Ratul Saha","logged":196.64,"active":132.45,"idle":64.19,"productive":104.25,"unproductive":15.94,"neutral":12.25,"activity_pct":67.36,"productivity_pct":78.71,"avg_start_min":152.7,"avg_end_min":1249.9,"days":21.0}],"_prod_delta":0.9,"_activity_delta":3.2},{"name":"QA","n":5,"logged":503.12,"active":409.47,"idle":93.64,"productive":362.96,"unproductive":11.88,"neutral":34.64,"activity_pct":84.6,"productivity_pct":91.2,"idle_pct":18.6,"unproductive_pct":2.9,"avg_start_min":712.1,"avg_end_min":1122.7,"individuals":[{"name":"Namrata Bishoyee","logged":0.5,"active":0.5,"idle":0.0,"productive":0.5,"unproductive":0.0,"neutral":0.0,"activity_pct":100.0,"productivity_pct":100.0,"avg_start_min":1080.0,"avg_end_min":1110.0,"days":1.0},{"name":"Jatin  Chandwani","logged":177.32,"active":161.81,"idle":15.52,"productive":157.65,"unproductive":0.74,"neutral":3.41,"activity_pct":91.25,"productivity_pct":97.43,"avg_start_min":551.4,"avg_end_min":1123.8,"days":18.5},{"name":"Krunal Rami","logged":104.78,"active":95.64,"idle":9.14,"productive":89.93,"unproductive":2.38,"neutral":3.33,"activity_pct":91.28,"productivity_pct":94.03,"avg_start_min":630.5,"avg_end_min":1071.0,"days":16.5},{"name":"Namrata Flowace","logged":21.87,"active":15.82,"idle":6.05,"productive":14.33,"unproductive":0.16,"neutral":1.33,"activity_pct":72.33,"productivity_pct":90.59,"avg_start_min":700.8,"avg_end_min":1092.2,"days":2.5},{"name":"Krithikaa Ramasubramanian","logged":198.65,"active":135.71,"idle":62.94,"productive":100.55,"unproductive":8.6,"neutral":26.56,"activity_pct":68.32,"productivity_pct":74.09,"avg_start_min":597.6,"avg_end_min":1216.5,"days":21.0}],"_prod_delta":0.3,"_activity_delta":2.4},{"name":"Customer Success","n":4,"logged":571.11,"active":431.98,"idle":139.12,"productive":394.62,"unproductive":7.32,"neutral":30.04,"activity_pct":75.1,"productivity_pct":90.4,"idle_pct":24.4,"unproductive_pct":1.7,"avg_start_min":631.5,"avg_end_min":1005.4,"individuals":[{"name":"Jatin  Chandwani","logged":177.32,"active":161.81,"idle":15.52,"productive":157.65,"unproductive":0.74,"neutral":3.41,"activity_pct":91.25,"productivity_pct":97.43,"avg_start_min":551.4,"avg_end_min":1123.8,"days":18.5},{"name":"Shalini Suman","logged":198.32,"active":135.8,"idle":62.52,"productive":131.96,"unproductive":0.44,"neutral":3.39,"activity_pct":68.47,"productivity_pct":97.18,"avg_start_min":628.4,"avg_end_min":1120.0,"days":20.0},{"name":"Namrata Flowace","logged":21.87,"active":15.82,"idle":6.05,"productive":14.33,"unproductive":0.16,"neutral":1.33,"activity_pct":72.33,"productivity_pct":90.59,"avg_start_min":700.8,"avg_end_min":1092.2,"days":2.5},{"name":"Ashi Kothari","logged":173.59,"active":118.56,"idle":55.03,"productive":90.68,"unproductive":5.98,"neutral":21.91,"activity_pct":68.3,"productivity_pct":76.48,"avg_start_min":645.6,"avg_end_min":685.4,"days":18.0}],"_prod_delta":-0.5,"_activity_delta":-7.1},{"name":"No Team","n":10,"logged":1452.55,"active":1205.84,"idle":246.71,"productive":1083.09,"unproductive":30.7,"neutral":92.05,"activity_pct":82.7,"productivity_pct":89.3,"idle_pct":17.0,"unproductive_pct":2.5,"avg_start_min":622.1,"avg_end_min":1076.2,"individuals":[{"name":"Bhagwati Prasad","logged":216.75,"active":215.87,"idle":0.88,"productive":213.91,"unproductive":0.75,"neutral":1.21,"activity_pct":99.6,"productivity_pct":99.09,"avg_start_min":568.0,"avg_end_min":1165.8,"days":22.0},{"name":"Neha Pandey","logged":181.07,"active":158.86,"idle":22.21,"productive":154.76,"unproductive":1.6,"neutral":2.5,"activity_pct":87.74,"productivity_pct":97.41,"avg_start_min":591.3,"avg_end_min":1112.2,"days":21.5},{"name":"Shubhangi Srivasatava","logged":164.63,"active":119.67,"idle":44.96,"productive":113.61,"unproductive":1.9,"neutral":4.16,"activity_pct":72.69,"productivity_pct":94.94,"avg_start_min":614.0,"avg_end_min":1135.9,"days":19.0},{"name":"Karan Gupta","logged":182.89,"active":156.95,"idle":25.94,"productive":146.72,"unproductive":6.22,"neutral":4.02,"activity_pct":85.82,"productivity_pct":93.48,"avg_start_min":601.6,"avg_end_min":1122.4,"days":21.0},{"name":"Ayush Verma","logged":65.29,"active":59.25,"idle":6.04,"productive":54.19,"unproductive":2.19,"neutral":2.87,"activity_pct":90.75,"productivity_pct":91.47,"avg_start_min":647.1,"avg_end_min":910.3,"days":7.0},{"name":"Vasantha Priya","logged":71.05,"active":45.05,"idle":26.0,"productive":40.51,"unproductive":3.97,"neutral":0.57,"activity_pct":63.4,"productivity_pct":89.93,"avg_start_min":725.6,"avg_end_min":1012.5,"days":15.0},{"name":"Naveen R","logged":237.45,"active":187.73,"idle":49.72,"productive":168.15,"unproductive":12.09,"neutral":7.49,"activity_pct":79.06,"productivity_pct":89.57,"avg_start_min":621.2,"avg_end_min":1055.7,"days":20.0},{"name":"Namrata Bishoyee","logged":123.0,"active":93.12,"idle":29.88,"productive":82.91,"unproductive":0.39,"neutral":9.82,"activity_pct":75.7,"productivity_pct":89.03,"avg_start_min":610.6,"avg_end_min":866.9,"days":13.0},{"name":"Mehek Samrin","logged":14.1,"active":13.11,"idle":0.98,"productive":11.3,"unproductive":0.01,"neutral":1.81,"activity_pct":93.02,"productivity_pct":86.14,"avg_start_min":637.7,"avg_end_min":1270.8,"days":2.0},{"name":"Ratish Jain","logged":196.31,"active":156.23,"idle":40.08,"productive":97.03,"unproductive":1.59,"neutral":57.6,"activity_pct":79.58,"productivity_pct":62.11,"avg_start_min":603.8,"avg_end_min":1109.9,"days":22.0}],"_prod_delta":-1.6,"_activity_delta":0.5},{"name":"Design","n":1,"logged":198.65,"active":135.71,"idle":62.94,"productive":100.55,"unproductive":8.6,"neutral":26.56,"activity_pct":68.3,"productivity_pct":74.1,"idle_pct":31.7,"unproductive_pct":6.3,"avg_start_min":597.6,"avg_end_min":1216.5,"individuals":[{"name":"Krithikaa Ramasubramanian","logged":198.65,"active":135.71,"idle":62.94,"productive":100.55,"unproductive":8.6,"neutral":26.56,"activity_pct":68.32,"productivity_pct":74.09,"avg_start_min":597.6,"avg_end_min":1216.5,"days":21.0}],"_prod_delta":-16.8,"_activity_delta":-13.9}],"at_risk":[{"name":"Ratish Jain","teams":["No Team"],"activity_pct":79.58,"productivity_pct":62.11,"idle":40.08,"_severity":31.4},{"name":"Krithikaa Ramasubramanian","teams":["QA","Design"],"activity_pct":68.32,"productivity_pct":74.09,"idle":62.94,"_severity":30.7},{"name":"Ashi Kothari","teams":["Customer Success"],"activity_pct":68.3,"productivity_pct":76.48,"idle":55.03,"_severity":28.3},{"name":"Ratul Saha","teams":["Web Developer & Mobile team"],"activity_pct":67.36,"productivity_pct":78.71,"idle":64.19,"_severity":27.0},{"name":"Namrata Bishoyee","teams":["No Team"],"activity_pct":75.7,"productivity_pct":89.03,"idle":29.88,"_severity":8.4},{"name":"Naveen R","teams":["No Team"],"activity_pct":79.06,"productivity_pct":89.57,"idle":49.72,"_severity":4.5},{"name":"Vasantha Priya","teams":["No Team"],"activity_pct":63.4,"productivity_pct":89.93,"idle":26.0,"_severity":19.8},{"name":"Namrata Flowace","teams":["QA","Customer Success"],"activity_pct":72.33,"productivity_pct":90.59,"idle":6.05,"_severity":10.2}],"enriched":{"idle_recovery_h":553.5,"idle_recovery_fmt":"553h 30m","top_team":"HR","bottom_team":"Design","top_team_prod":99.1,"bottom_team_prod":74.1,"at_risk_names":["Ratish Jain","Krithikaa Ramasubramanian","Ashi Kothari"],"org_idle_fmt":"673h 22m","org_productive_fmt":"2779h 31m","org_logged_fmt":"3724h 58m"},"benchmarks":[],"team_insights":{"HR":"Top performer at 99.1% productivity (+8.2 vs avg) with minimal 9h 33m idle \u2014 a model for efficiency.","Sales":"Strong 95.7% productivity with 90.0% activity; 53h 31m idle offers minor optimization potential.","Digital Marketing":"Excellent 94.6% productivity and 95.3% activity \u2014 highly efficient with only 8h 54m idle.","Directors":"Solid 93.5% productivity but 51.3% activity and 72h 3m idle suggests significant untracked time.","Web Developer & Mobile team":"Near-average 91.8% productivity; 95h 52m idle across 4 people warrants review.","QA":"Stable 91.2% productivity with 93h 38m idle across 5 people \u2014 moderate optimization opportunity.","Customer Success":"Slightly below average at 90.4% productivity; 139h 7m idle is the second-highest drain.","No Team":"10 unassigned employees with 246h 43m idle \u2014 the largest idle contributor, needing immediate structure.","Design":"Critical underperformer at 74.1% productivity (-16.8 vs avg) \u2014 requires urgent intervention."},"team_narratives":{"HR":"This one-person team is exceptional, delivering 99.1% productivity with near-zero idle time. The strength is discipline and focus. No concerns \u2014 maintain current practices.","Sales":"A healthy team performing well above average at 95.7% productivity. Main strength is consistent activity at 90.0%. Minor concern is 53h idle that could be reduced.","Digital Marketing":"Highly efficient single contributor with 94.6% productivity and 95.3% activity. Strength is time management. No significant concerns.","Directors":"Productivity looks solid at 93.5%, but 51.3% activity and 72h idle suggests substantial time in meetings or offline work. Consider tracking leadership activities differently.","Web Developer & Mobile team":"Team is performing near average with 91.8% productivity. Strength is stability. Concern is 95h 52m idle spread across 4 people \u2014 review workload distribution.","QA":"Stable team at 91.2% productivity, slightly above average. Strength is consistency. The 93h 38m idle across 5 people suggests possible downtime between testing cycles.","Customer Success":"Team is slightly underperforming at 90.4% productivity with 139h 7m idle. Main concern is Ashi Kothari at 76.5% productivity. Focus on workload and engagement.","No Team":"This group of 10 has the highest idle at 246h 43m and below-average 89.3% productivity. Urgent need: assign these employees to proper teams for accountability.","Design":"Critical situation with 74.1% productivity \u2014 the lowest in the organization. Krithikaa Ramasubramanian needs immediate support. This team requires coaching and clear deliverables."},"at_risk_detail":{"Ratish Jain":"Productivity 62.1% vs 90.9% avg (-28.8 pts), activity 79.6% vs 82.2% avg \u2014 HIGH PRIORITY, largest gap.","Krithikaa Ramasubramanian":"Productivity 74.1% vs 90.9% avg (-16.8 pts), activity 68.3% vs 82.2% avg \u2014 HIGH PRIORITY, Design team impact.","Ashi Kothari":"Productivity 76.5% vs 90.9% avg (-14.4 pts), activity 68.3% vs 82.2% avg \u2014 HIGH PRIORITY, Customer Success risk.","Ratul Saha":"Productivity 78.7% vs 90.9% avg (-12.2 pts), activity 67.4% vs 82.2% avg \u2014 MEDIUM PRIORITY, Web Dev team.","Vasantha Priya":"Productivity 89.9% vs 90.9% avg (-1.0 pts), activity 63.4% vs 82.2% avg \u2014 MEDIUM PRIORITY, activity focus.","Namrata Bishoyee":"Productivity 89.0% vs 90.9% avg (-1.9 pts), activity 75.7% vs 82.2% avg \u2014 LOW PRIORITY, minor improvement.","Naveen R":"Productivity 89.6% vs 90.9% avg (-1.3 pts), activity 79.1% vs 82.2% avg \u2014 LOW PRIORITY, near target.","Namrata Flowace":"Productivity 90.6% vs 90.9% avg (-0.3 pts), activity 72.3% vs 82.2% avg \u2014 LOW PRIORITY, activity focus."}}</script>
+<script>
+// ── RAG (Red / Amber / Green) helpers ────────────────────────────────────────
+// Thresholds relative to org average — adapts automatically to any tenant
+function ragProd(pct) {
+  const diff = pct - DATA.organization.productivity_pct;
+  if (diff >= -3)  return 'green';
+  if (diff >= -10) return 'yellow';
+  return 'red';
+}
+function ragAct(pct) {
+  const diff = pct - DATA.organization.activity_pct;
+  if (diff >= -3)  return 'green';
+  if (diff >= -10) return 'yellow';
+  return 'red';
+}
+function ragIdle(idlePct) {
+  const orgIdle = DATA.organization.idle_pct || 1;
+  const ratio = idlePct / orgIdle;
+  if (ratio <= 1)    return 'green';
+  if (ratio <= 1.5)  return 'yellow';
+  return 'red';
+}
+function ragDot(rag, label) {
+  const colors = { green: '#22C55E', yellow: '#F59E0B', red: '#EF4444' };
+  const c = colors[rag] || colors.green;
+  const tip = label ? ` title="${label}"` : '';
+  return `<span${tip} style="display:inline-block;width:8px;height:8px;border-radius:50%;` +
+    `background:${c};flex-shrink:0;box-shadow:0 0 0 2px ${c}33;margin-left:6px;vertical-align:middle"></span>`;
+}
+function ragBadge(severity) {
+  if (severity >= 20) return `<span style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:3px;background:rgba(239,68,68,.15);color:#EF4444;border:1px solid rgba(239,68,68,.3)">High</span>`;
+  if (severity >= 10) return `<span style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:3px;background:rgba(245,158,11,.15);color:#F59E0B;border:1px solid rgba(245,158,11,.3)">Medium</span>`;
+  return `<span style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:3px;background:rgba(34,197,94,.12);color:#22C55E;border:1px solid rgba(34,197,94,.25)">Watch</span>`;
+}
+
+// ── Team insights + narratives ─────────────────────────────────────────────
+function getTeamInsight(name) {
+  return (DATA.team_insights && DATA.team_insights[name]) ? DATA.team_insights[name] : '';
+}
+function getTeamNarrative(name) {
+  return (DATA.team_narratives && DATA.team_narratives[name]) ? DATA.team_narratives[name] : '';
+}
+
+// ── At-risk panel with pagination ─────────────────────────────────────────
+const AT_RISK_PAGE_SIZE = 5;
+let atRiskExpanded = false;
+
+function renderAtRiskRow(u) {
+  const detail   = (DATA.at_risk_detail && DATA.at_risk_detail[u.name]) ? DATA.at_risk_detail[u.name] : '';
+  const severity = (DATA.organization.productivity_pct - u.productivity_pct) +
+                   (DATA.organization.activity_pct - u.activity_pct);
+  return `<div class="at-risk-row">
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="font-size:13px;font-weight:600;color:#fff">${u.name}</span>
+        ${ragBadge(severity)}
+      </div>
+      <div style="font-size:11px;color:#8A929E">${u.teams.join(', ')}</div>
+    </div>
+    <div class="at-risk-detail" style="font-size:12px;color:#D4D8DD;line-height:1.5">${detail || 'Below company average on both productivity and activity.'}</div>
+    <div style="text-align:right">
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px">
+        <span style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#F25425">${u.productivity_pct.toFixed(1)}%</span>
+        ${ragDot(ragProd(u.productivity_pct))}
+      </div>
+      <div style="font-size:11px;color:#8A929E;margin-top:2px">productivity</div>
+      <div style="font-size:11px;color:#5A6270;margin-top:1px">−${severity.toFixed(1)} pts combined gap</div>
+    </div>
+  </div>`;
+}
+
+function renderAtRisk() {
+  const section    = document.getElementById('at-risk-section');
+  const rowsEl     = document.getElementById('at-risk-rows');
+  const subEl      = document.getElementById('at-risk-sub');
+  const toggleWrap = document.getElementById('at-risk-toggle');
+  const toggleBtn  = document.getElementById('at-risk-toggle-btn');
+  const list = DATA.at_risk || [];
+
+  if (!list.length) { section.style.display = 'none'; return; }
+
+  section.style.display = '';
+  const total   = list.length;
+  const showing = atRiskExpanded ? total : Math.min(AT_RISK_PAGE_SIZE, total);
+
+  subEl.textContent = `${total} employee${total > 1 ? 's' : ''} below company average on both metrics`;
+  rowsEl.innerHTML  = list.slice(0, showing).map(renderAtRiskRow).join('');
+
+  const rows = rowsEl.querySelectorAll('[style*="border-bottom"]');
+  if (rows.length) rows[rows.length - 1].style.borderBottom = 'none';
+
+  if (total > AT_RISK_PAGE_SIZE) {
+    toggleWrap.style.display = '';
+    toggleBtn.textContent = atRiskExpanded
+      ? 'Show less'
+      : `Show all ${total} employees ↓`;
+  } else {
+    toggleWrap.style.display = 'none';
+  }
+}
+
+window.toggleAtRisk = function() {
+  atRiskExpanded = !atRiskExpanded;
+  renderAtRisk();
+};
+
+// ============================================================
+// Data + render logic
+// ============================================================
+const DATA = JSON.parse(document.getElementById('data-blob').textContent);
+
+// Helpers
+const fmt = {
+  num: n => Math.round(n).toLocaleString('en-IN'),
+  num1: n => n == null ? '—' : (Math.round(n * 10) / 10).toLocaleString('en-IN'),
+  hours: h => h == null ? '—' : Math.round(h).toLocaleString('en-IN') + ' h',
+  pct: p => p == null ? '—' : p.toFixed(1) + '%',
+  time: m => {
+    if (m == null) return '—';
+    const h = Math.floor(m / 60);
+    const min = Math.round(m % 60);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${h12}:${String(min).padStart(2,'0')} ${ampm}`;
+  },
+  timeShort: m => {
+    if (m == null) return '—';
+    const h = Math.floor(m / 60);
+    const min = Math.round(m % 60);
+    const ampm = h >= 12 ? 'pm' : 'am';
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${h12}:${String(min).padStart(2,'0')}${ampm}`;
+  },
+};
+
+function classifyTeam(activityPct) {
+  if (activityPct >= 67) return 'strong';
+  if (activityPct >= 60) return 'ok';
+  return 'watch';
+}
+
+// ============================================================
+// Hero text + meta
+// ============================================================
+document.getElementById('hero-hours').textContent = fmt.num(DATA.organization.logged);
+document.getElementById('meta-period').textContent = `${DATA.period_start} – ${DATA.period_end}`;
+document.getElementById('meta-members').textContent = `${DATA.organization.n} active · ${DATA.inactive_count} dormant`;
+
+// ============================================================
+// KPI cards
+// ============================================================
+const org = DATA.organization;
+const kpis = [
+  { label: 'Active Members', value: org.n,                            sub: `+ ${DATA.inactive_count} dormant licenses`, cls: 'white' },
+  { label: 'Hours Logged',   value: fmt.num(org.logged),              sub: 'across ' + DATA.period_days + ' days',                          cls: 'white' },
+  { label: 'Activity Rate',  value: org.activity_pct + '%' + ragDot(ragAct(org.activity_pct), 'vs org baseline'),           sub: 'of logged hours active',                   cls: 'blue' },
+  { label: 'Productivity',   value: org.productivity_pct + '%' + ragDot(ragProd(org.productivity_pct), 'vs org baseline'),       sub: 'of active time productive',                cls: 'teal' },
+  { label: 'Idle Exposure',  value: org.idle_pct + '%' + ragDot(ragIdle(org.idle_pct), 'idle vs org avg'),               sub: fmt.num(org.idle) + ' h recoverable',        cls: 'orange' },
+  { label: 'Working Window', value: fmt.timeShort(org.avg_start_min) + ' – ' + fmt.timeShort(org.avg_end_min), sub: 'team-average shift', cls: 'white', compact: true },
+];
+document.getElementById('kpi-row').innerHTML = kpis.map(k => `
+  <div class="kpi ${k.cls}">
+    <div class="kpi-label">${k.label}</div>
+    <div class="kpi-value num${k.compact ? ' compact' : ''}">${k.value}</div>
+    <div class="kpi-sub">${k.sub}</div>
+  </div>
+`).join('');
+
+// ============================================================
+// Working hours timeline
+// ============================================================
+const TIMELINE_START = 6 * 60;   // 6 AM in minutes
+const TIMELINE_END   = 22 * 60;  // 10 PM
+const TIMELINE_RANGE = TIMELINE_END - TIMELINE_START;
+
+function buildTimeline() {
+  const container = document.getElementById('timeline');
+  // Axis ticks: every 2 hours
+  const ticksHtml = [];
+  for (let h = 6; h <= 22; h += 2) {
+    const pct = ((h * 60) - TIMELINE_START) / TIMELINE_RANGE * 100;
+    const label = (h % 12 === 0 ? 12 : h % 12) + (h >= 12 ? 'p' : 'a');
+    ticksHtml.push(`<span class="timeline-tick" style="left:${pct}%">${label}</span>`);
+  }
+
+  // Teams sorted by avg start time (earliest first)
+  const teams = DATA.teams
+    .filter(t => t.avg_start_min && t.avg_end_min)
+    .sort((a, b) => a.avg_start_min - b.avg_start_min);
+
+  const maxN = Math.max(...teams.map(t => t.n));
+  const minN = Math.min(...teams.map(t => t.n));
+
+  const barsHtml = teams.map(t => {
+    const startPct = (t.avg_start_min - TIMELINE_START) / TIMELINE_RANGE * 100;
+    const endPct = (t.avg_end_min - TIMELINE_START) / TIMELINE_RANGE * 100;
+    const widthPct = Math.max(2, endPct - startPct);
+    const status = classifyTeam(t.activity_pct);
+    const fillCls = status === 'watch' ? 'tb-fill watch' : 'tb-fill';
+    // Bar opacity reflects team headcount (subtle)
+    const opacity = 0.55 + (t.n - minN) / (maxN - minN || 1) * 0.45;
+    return `
+      <div class="timeline-bar">
+        <div class="tb-name" title="${t.n} members">${t.name}</div>
+        <div class="tb-track">
+          <div class="${fillCls}" style="left:${startPct}%;width:${widthPct}%;opacity:${opacity.toFixed(2)}"></div>
+        </div>
+        <div class="tb-meta"><strong>${fmt.time(t.avg_start_min)}</strong> – ${fmt.time(t.avg_end_min)}</div>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="timeline-axis">${ticksHtml.join('')}</div>
+    ${barsHtml}
+  `;
+}
+buildTimeline();
+
+// ============================================================
+// Drill-down: teams grid ↔ team detail
+// ============================================================
+const drillEl = document.getElementById('drill-content');
+const breadcrumbEl = document.getElementById('breadcrumb');
+
+function showAllTeams(scroll = false) {
+  const teams = DATA.teams;
+  const html = teams.map((t, i) => {
+    const status = classifyTeam(t.activity_pct);
+    const statusLabel = status === 'strong' ? 'Leading' : status === 'ok' ? 'On Track' : 'Watch';
+    return `
+      <div class="team-card ${status}" data-team-idx="${i}">
+        <div class="tc-head">
+          <div>
+            <div class="tc-name" style="display:flex;align-items:center;gap:4px">${t.name}${ragDot(ragProd(t.productivity_pct), "Productivity vs org avg")}</div>
+          </div>
+          <div class="tc-headcount"><strong class="num">${t.n}</strong> members</div>
+        </div>
+        ${getTeamInsight(t.name) ? `<div style="font-size:11px;color:#8A929E;font-style:italic;margin:6px 0 2px;line-height:1.4">${getTeamInsight(t.name)}</div>` : ""}
+        <div class="tc-metrics">
+          <div class="tc-metric accent">
+            <div class="tc-metric-label">Activity</div>
+            <div class="tc-metric-value num">${t.activity_pct}%</div>
+          </div>
+          <div class="tc-metric">
+            <div class="tc-metric-label">Productivity</div>
+            <div class="tc-metric-value num">${t.productivity_pct}%</div>
+          </div>
+          <div class="tc-metric">
+            <div class="tc-metric-label">Idle</div>
+            <div class="tc-metric-value num">${t.idle_pct}%</div>
+          </div>
+          <div class="tc-metric">
+            <div class="tc-metric-label">Logged</div>
+            <div class="tc-metric-value num">${fmt.num(t.logged)}h</div>
+          </div>
+        </div>
+        <div class="tc-bottom">
+          <span class="tc-status-pill">${statusLabel}</span>
+          <span class="tc-card-arrow">→</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+  drillEl.innerHTML = `<div class="teams-grid fade-in">${html}</div>`;
+  drillEl.querySelectorAll('.team-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const idx = parseInt(card.dataset.teamIdx, 10);
+      showTeamDetail(idx);
+    });
+  });
+  // Reset breadcrumb
+  breadcrumbEl.innerHTML = `<span class="crumb active">Organization</span>`;
+  if (scroll) window.scrollTo({ top: drillEl.offsetTop - 100, behavior: 'smooth' });
+}
+
+// Expose with explicit scroll behavior for inline event handlers
+window.goToTeams = () => showAllTeams(true);
+
+function showTeamDetail(teamIdx) {
+  const t = DATA.teams[teamIdx];
+  const status = classifyTeam(t.activity_pct);
+  const inds = t.individuals;
+  // Max for metric bar scaling
+  const maxLogged = Math.max(...inds.map(i => i.logged));
+  const maxActivity = 100; // pct based
+  const narrativeHtml = getTeamNarrative(t.name) ? `<div style="margin:0;padding:16px 28px 0"><div style="padding:14px 18px;background:rgba(0,212,170,.06);border-left:3px solid rgba(0,212,170,.35);border-radius:0 6px 6px 0"><div style="font-size:13px;color:#D4D8DD;line-height:1.7">${getTeamNarrative(t.name)}</div></div></div>` : '';
+  const indRows = inds.map((m, i) => {
+    const activityBar = (m.activity_pct / maxActivity) * 100;
+    const idleBar = (m.idle / maxLogged) * 100;
+    return `
+      <tr>
+        <td><span class="ind-rank num">${(i + 1).toString().padStart(2, '0')}</span><span class="ind-name">${m.name}</span></td>
+        <td class="num-col">${fmt.num1(m.logged)}</td>
+        <td class="num-col">${fmt.num1(m.active)}</td>
+        <td class="num-col">
+          <span class="metric-bar"><span class="metric-bar-fill" style="width:${activityBar}%"></span></span>${m.activity_pct.toFixed(1)}%${ragDot(ragAct(m.activity_pct))}
+        </td>
+        <td class="num-col">${fmt.num1(m.productive)}</td>
+        <td class="num-col">${m.productivity_pct.toFixed(1)}%${ragDot(ragProd(m.productivity_pct))}</td>
+        <td class="num-col">
+          <span class="metric-bar"><span class="metric-bar-fill orange" style="width:${idleBar}%"></span></span>${fmt.num1(m.idle)}
+        </td>
+        <td class="num-col">${fmt.time(m.avg_start_min)}</td>
+        <td class="num-col">${fmt.time(m.avg_end_min)}</td>
+        <td class="num-col">${m.days || '—'}</td>
+      </tr>
+    `;
+  }).join('');
+
+  drillEl.innerHTML = `
+    <div class="team-detail fade-in">
+      <div class="td-head">
+        <div class="td-back" onclick="window.goToTeams()">← Back to all teams</div>
+        <div class="td-title-row">
+          <div>
+            <div class="td-title">${t.name}</div>
+          </div>
+        </div>
+        <div class="td-summary">
+          <div class="td-stat"><div class="td-stat-label">Members</div><div class="td-stat-value num">${t.n}</div></div>
+          <div class="td-stat"><div class="td-stat-label">Logged</div><div class="td-stat-value num">${fmt.num(t.logged)} h</div></div>
+          <div class="td-stat"><div class="td-stat-label">Active</div><div class="td-stat-value num">${fmt.num(t.active)} h</div></div>
+          <div class="td-stat ${status === 'watch' ? 'orange' : 'teal'}"><div class="td-stat-label">Activity</div><div class="td-stat-value num">${t.activity_pct}%</div></div>
+          <div class="td-stat teal"><div class="td-stat-label">Productivity</div><div class="td-stat-value num">${t.productivity_pct}%</div></div>
+          <div class="td-stat orange"><div class="td-stat-label">Idle</div><div class="td-stat-value num">${fmt.num(t.idle)} h</div></div>
+          <div class="td-stat"><div class="td-stat-label">Working Window</div><div class="td-stat-value num">${fmt.time(t.avg_start_min)} – ${fmt.time(t.avg_end_min)}</div></div>
+        </div>
+      </div>
+      ${narrativeHtml}
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table class="individuals-table" style="min-width:560px">
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th class="num-col">Logged (h)</th>
+              <th class="num-col">Active (h)</th>
+              <th class="num-col">Activity %</th>
+              <th class="num-col">Productive (h)</th>
+              <th class="num-col">Prod %</th>
+              <th class="num-col">Idle (h)</th>
+              <th class="num-col">Avg Start</th>
+              <th class="num-col">Avg Logout</th>
+              <th class="num-col">Days</th>
+            </tr>
+          </thead>
+          <tbody>${indRows}</tbody>
+        </table>
+      </div>
+      <div class="td-footer">
+        Showing ${inds.length} members · ranked by productive hours · period 18 May 2026 – 16 June 2026
+      </div>
+    </div>
+  `;
+  // Breadcrumb update
+  breadcrumbEl.innerHTML = `
+    <span class="crumb" onclick="window.goToTeams()">Organization</span>
+    <span class="sep">›</span>
+    <span class="crumb active">${t.name}</span>
+  `;
+  window.scrollTo({ top: drillEl.offsetTop - 100, behavior: 'smooth' });
+}
+
+// Initial render
+showAllTeams();
+
+// ============================================================
+// Quadrant analysis
+// ============================================================
+const QPLOT = {
+  width: 720, height: 540,
+  padT: 50, padR: 60, padB: 80, padL: 90,
+};
+QPLOT.plotW = QPLOT.width - QPLOT.padL - QPLOT.padR;   // 570
+QPLOT.plotH = QPLOT.height - QPLOT.padT - QPLOT.padB;  // 410
+
+// Axis ranges + thresholds
+const QCFG = {
+  teams:       { xMin: 40, xMax: 80,  yMin: 70, yMax: 100, xTh: 65, yTh: 88 },
+  individuals: { xMin: 20, xMax: 100, yMin: 30, yMax: 100, xTh: 65, yTh: 88 },
+};
+
+// Ideal target distribution (% of population that should be in each quadrant)
+const QIDEAL = { stars: 40, efficient: 25, busy: 20, risk: 15 };
+
+function quadOf(act, prod, cfg) {
+  if (act >= cfg.xTh && prod >= cfg.yTh) return 'stars';
+  if (act <  cfg.xTh && prod >= cfg.yTh) return 'efficient';
+  if (act >= cfg.xTh && prod <  cfg.yTh) return 'busy';
+  return 'risk';
+}
+
+function scaleX(v, cfg) {
+  const clamped = Math.max(cfg.xMin, Math.min(cfg.xMax, v));
+  return QPLOT.padL + ((clamped - cfg.xMin) / (cfg.xMax - cfg.xMin)) * QPLOT.plotW;
+}
+function scaleY(v, cfg) {
+  const clamped = Math.max(cfg.yMin, Math.min(cfg.yMax, v));
+  return QPLOT.padT + QPLOT.plotH - ((clamped - cfg.yMin) / (cfg.yMax - cfg.yMin)) * QPLOT.plotH;
+}
+
+function renderQuadrant(mode = 'teams', teamIdx = null) {
+  const cfg = QCFG[mode];
+  const teamSelected = teamIdx != null ? DATA.teams[teamIdx] : null;
+
+  // ─── Data preparation ───
+  let points = [];
+  if (mode === 'teams') {
+    points = DATA.teams.map((t, i) => ({
+      x: t.activity_pct, y: t.productivity_pct, n: t.n, idx: i,
+      name: t.name, label: t.name,
+      quad: quadOf(t.activity_pct, t.productivity_pct, cfg),
+    }));
+  } else {
+    points = teamSelected.individuals.map((m) => ({
+      x: m.activity_pct, y: m.productivity_pct, n: 1,
+      name: m.name,
+      sub: `Act ${m.activity_pct.toFixed(1)}% · Prod ${m.productivity_pct.toFixed(1)}% · Logged ${Math.round(m.logged)}h`,
+      quad: quadOf(m.activity_pct, m.productivity_pct, cfg),
+    }));
+  }
+
+  // ─── Compute distribution stats ───
+  const buckets = { stars: [], efficient: [], busy: [], risk: [] };
+  points.forEach(p => buckets[p.quad].push(p));
+  const totalPeople = mode === 'teams'
+    ? points.reduce((s, p) => s + p.n, 0)
+    : points.length;
+  const totalUnits = mode === 'teams' ? points.length : totalPeople;
+  const stats = ['stars', 'efficient', 'busy', 'risk'].map(q => {
+    const grp = buckets[q];
+    const teamCt = grp.length;
+    const peopleCt = mode === 'teams'
+      ? grp.reduce((s, p) => s + p.n, 0)
+      : grp.length;
+    const pctPeople = totalPeople ? (peopleCt / totalPeople) * 100 : 0;
+    return { quad: q, teamCt, peopleCt, pctPeople, ideal: QIDEAL[q] };
+  });
+
+  // ─── Build SVG ───
+  const xThSvg = scaleX(cfg.xTh, cfg);
+  const yThSvg = scaleY(cfg.yTh, cfg);
+  const plotRight = QPLOT.padL + QPLOT.plotW;
+  const plotBottom = QPLOT.padT + QPLOT.plotH;
+
+  // Dot radius
+  const dotRadius = mode === 'teams'
+    ? (n) => { const minN = 2, maxN = 250; return 7 + Math.sqrt((n - minN) / (maxN - minN)) * 14; }
+    : () => 4.5;
+
+  // SVG parts
+  const svgParts = [];
+
+  // Quadrant backgrounds (drawn under everything)
+  svgParts.push(`<rect class="qquad-bg stars"     x="${xThSvg}"        y="${QPLOT.padT}" width="${plotRight - xThSvg}" height="${yThSvg - QPLOT.padT}"/>`);
+  svgParts.push(`<rect class="qquad-bg efficient" x="${QPLOT.padL}"    y="${QPLOT.padT}" width="${xThSvg - QPLOT.padL}" height="${yThSvg - QPLOT.padT}"/>`);
+  svgParts.push(`<rect class="qquad-bg busy"      x="${xThSvg}"        y="${yThSvg}"     width="${plotRight - xThSvg}" height="${plotBottom - yThSvg}"/>`);
+  svgParts.push(`<rect class="qquad-bg risk"      x="${QPLOT.padL}"    y="${yThSvg}"     width="${xThSvg - QPLOT.padL}" height="${plotBottom - yThSvg}"/>`);
+
+  // Plot border
+  svgParts.push(`<rect class="qaxis-line" x="${QPLOT.padL}" y="${QPLOT.padT}" width="${QPLOT.plotW}" height="${QPLOT.plotH}" fill="none"/>`);
+
+  // Threshold lines (dashed)
+  svgParts.push(`<line class="qaxis-threshold" x1="${xThSvg}" y1="${QPLOT.padT}" x2="${xThSvg}" y2="${plotBottom}"/>`);
+  svgParts.push(`<line class="qaxis-threshold" x1="${QPLOT.padL}" y1="${yThSvg}" x2="${plotRight}" y2="${yThSvg}"/>`);
+
+  // Quadrant corner labels
+  const cornerPad = 14;
+  svgParts.push(`<text class="qquad-label stars"     x="${plotRight - cornerPad}" y="${QPLOT.padT + cornerPad + 4}" text-anchor="end">★ STARS</text>`);
+  svgParts.push(`<text class="qquad-label efficient" x="${QPLOT.padL + cornerPad}" y="${QPLOT.padT + cornerPad + 4}">✓ EFFICIENT</text>`);
+  svgParts.push(`<text class="qquad-label busy"      x="${plotRight - cornerPad}" y="${plotBottom - cornerPad}" text-anchor="end">⚡ BUSY</text>`);
+  svgParts.push(`<text class="qquad-label risk"      x="${QPLOT.padL + cornerPad}" y="${plotBottom - cornerPad}">⚠ AT RISK</text>`);
+
+  // Axis tick marks
+  const xTicks = mode === 'teams' ? [40, 50, 60, 70, 80] : [20, 40, 60, 80, 100];
+  const yTicks = mode === 'teams' ? [70, 80, 90, 100]   : [30, 50, 70, 90, 100];
+  xTicks.forEach(t => {
+    const sx = scaleX(t, cfg);
+    svgParts.push(`<text class="qaxis-tick" x="${sx}" y="${plotBottom + 18}" text-anchor="middle">${t}%</text>`);
+    svgParts.push(`<line class="qaxis-line" x1="${sx}" y1="${plotBottom}" x2="${sx}" y2="${plotBottom + 4}" opacity="0.5"/>`);
+  });
+  yTicks.forEach(t => {
+    const sy = scaleY(t, cfg);
+    svgParts.push(`<text class="qaxis-tick" x="${QPLOT.padL - 10}" y="${sy + 3}" text-anchor="end">${t}%</text>`);
+    svgParts.push(`<line class="qaxis-line" x1="${QPLOT.padL - 4}" y1="${sy}" x2="${QPLOT.padL}" y2="${sy}" opacity="0.5"/>`);
+  });
+
+  // Axis labels
+  svgParts.push(`<text class="qaxis-label" x="${QPLOT.padL + QPLOT.plotW/2}" y="${plotBottom + 50}" text-anchor="middle">Activity Rate →</text>`);
+  svgParts.push(`<text class="qaxis-label" x="${-(QPLOT.padT + QPLOT.plotH/2)}" y="22" text-anchor="middle" transform="rotate(-90)">Productivity →</text>`);
+
+  // Threshold value labels — placed near the AXIS, not the chart edge
+  svgParts.push(`<text class="qaxis-tick" x="${xThSvg}" y="${plotBottom + 18}" text-anchor="middle" font-weight="600" fill="var(--text-muted)">${cfg.xTh}%</text>`);
+  svgParts.push(`<text class="qaxis-tick" x="${QPLOT.padL - 10}" y="${yThSvg + 3}" text-anchor="end" font-weight="600" fill="var(--text-muted)">${cfg.yTh}%</text>`);
+
+  // Data points
+  points.forEach((p, i) => {
+    const sx = scaleX(p.x, cfg);
+    const sy = scaleY(p.y, cfg);
+    const r = dotRadius(p.n);
+    const cls = `qdot ${p.quad}` + (mode === 'individuals' ? ' ind' : '');
+    const tooltip = mode === 'teams'
+      ? `${p.name}\nActivity ${p.x.toFixed(1)}% · Productivity ${p.y.toFixed(1)}%\n${p.n} members\nClick for individual breakdown`
+      : `${p.name}\nActivity ${p.x.toFixed(1)}% · Productivity ${p.y.toFixed(1)}%`;
+    const onclick = mode === 'teams' ? ` onclick="window.openTeamQuadrant(${p.idx})"` : '';
+    svgParts.push(`<circle class="${cls}" cx="${sx}" cy="${sy}" r="${r}" stroke="rgba(0,0,0,0.4)" stroke-width="1"${onclick}><title>${tooltip}</title></circle>`);
+  });
+
+  // Team labels with anti-collision (only in team mode)
+  if (mode === 'teams') {
+    // Trim "(Operations)" suffix for shorter labels
+    const trimmed = points.map((p, i) => {
+      let label = p.name.replace(/\s*\(Operations\)\s*$/, '').replace(/^Network-/, 'Network ');
+      return { ...p, sx: scaleX(p.x, cfg), sy: scaleY(p.y, cfg), r: dotRadius(p.n), label, i };
+    });
+    // Estimate label width (very rough: 6px per char at 10px font)
+    const labelW = (s) => s.length * 6;
+    const labelH = 12;
+    // Place labels: prefer right of dot, but if collision, try below-right, above-right, far-right
+    const placedBoxes = []; // [x1, y1, x2, y2]
+    const positions = [];
+    trimmed.forEach((p) => {
+      const offsets = [
+        { dx: p.r + 5, dy: 3 },              // right
+        { dx: p.r + 5, dy: 14 },             // below-right
+        { dx: p.r + 5, dy: -8 },             // above-right
+        { dx: -p.r - 5, dy: 3, anchor: 'end' }, // left
+        { dx: -p.r - 5, dy: 14, anchor: 'end' }, // below-left
+        { dx: p.r + 5, dy: 22 },             // farther below-right
+      ];
+      let chosen = offsets[0];
+      for (const o of offsets) {
+        const lx = p.sx + o.dx;
+        const ly = p.sy + o.dy;
+        const w = labelW(p.label);
+        const x1 = o.anchor === 'end' ? lx - w : lx;
+        const x2 = o.anchor === 'end' ? lx : lx + w;
+        const y1 = ly - labelH + 3;
+        const y2 = ly + 3;
+        const collides = placedBoxes.some(b =>
+          x1 < b[2] && x2 > b[0] && y1 < b[3] && y2 > b[1]
+        );
+        if (!collides) { chosen = { ...o, lx, ly, x1, y1, x2, y2 }; break; }
+      }
+      // Fall back to first if all collide
+      if (!chosen.lx) {
+        const o = offsets[0];
+        chosen = { ...o, lx: p.sx + o.dx, ly: p.sy + o.dy };
+        chosen.x1 = chosen.lx; chosen.x2 = chosen.lx + labelW(p.label);
+        chosen.y1 = chosen.ly - labelH + 3; chosen.y2 = chosen.ly + 3;
+      }
+      placedBoxes.push([chosen.x1, chosen.y1, chosen.x2, chosen.y2]);
+      positions.push({ ...p, ...chosen });
+    });
+    positions.forEach(p => {
+      const anchor = p.anchor === 'end' ? ' text-anchor="end"' : '';
+      svgParts.push(`<text class="qdot-label" x="${p.lx}" y="${p.ly}"${anchor} pointer-events="none">${p.label}</text>`);
+    });
+  }
+
+  // Final SVG
+  const svg = `<svg viewBox="0 0 ${QPLOT.width} ${QPLOT.height}" xmlns="http://www.w3.org/2000/svg">${svgParts.join('')}</svg>`;
+  document.getElementById('quadrant-plot').innerHTML = svg;
+
+  // ─── Render stats panel ───
+  const QLABEL = {
+    stars:     { name: '★ Stars',     desc: 'high active · high productive', insight: 'The ideal — protect and replicate their workflow patterns.' },
+    efficient: { name: '✓ Efficient', desc: 'low active · high productive',  insight: 'Quality is there. Lift engagement to graduate into Stars.' },
+    busy:      { name: '⚡ Busy',     desc: 'high active · low productive',  insight: 'Engagement is fine but output quality slipping — workflow review.' },
+    risk:      { name: '⚠ At Risk',   desc: 'low active · low productive',   insight: 'Compound underperformance — needs the most focused intervention.' },
+  };
+  const statsHTML = stats.map(s => {
+    const lbl = QLABEL[s.quad];
+    const idealLeft = `${s.ideal}%`;
+    // Cap bar at 100%
+    const barFillPct = Math.min(100, s.pctPeople);
+    const delta = s.pctPeople - s.ideal;
+    // For Stars and Efficient, higher is better. For Busy and Risk, lower is better.
+    const desirableHigh = (s.quad === 'stars' || s.quad === 'efficient');
+    const onTarget = desirableHigh ? delta >= 0 : delta <= 0;
+    const deltaClass = onTarget ? 'delta-up' : 'delta-down';
+    const deltaSign = delta > 0 ? '+' : '';
+    const idealMarkerLeft = `${Math.min(100, s.ideal)}%`;
+    const verdict = onTarget
+      ? `<span class="${deltaClass}">${deltaSign}${delta.toFixed(1)} pts vs ideal</span> · ${lbl.insight}`
+      : `<span class="${deltaClass}">${deltaSign}${delta.toFixed(1)} pts vs ideal</span> · ${lbl.insight}`;
+    const countLabel = mode === 'teams'
+      ? `${s.teamCt} team${s.teamCt === 1 ? '' : 's'} · ${s.peopleCt} ${s.peopleCt === 1 ? 'person' : 'people'}`
+      : `${s.peopleCt} ${s.peopleCt === 1 ? 'person' : 'people'}`;
+    return `
+      <div class="qstat ${s.quad}">
+        <div class="qstat-head">
+          <div class="qstat-name">${lbl.name}</div>
+          <div class="qstat-pct">${s.pctPeople.toFixed(1)}%</div>
+        </div>
+        <div class="qstat-meta">${countLabel} <span style="color:var(--text-dim)">· ${lbl.desc}</span></div>
+        <div class="qstat-bar">
+          <div class="qstat-bar-fill" style="width:${barFillPct}%"></div>
+          <div class="qstat-bar-target" style="left:${idealMarkerLeft}" title="Ideal: ${s.ideal}%"></div>
+        </div>
+        <div class="qstat-insight">${verdict}</div>
+      </div>
+    `;
+  }).join('');
+  document.getElementById('quadrant-stats').innerHTML = statsHTML;
+
+  // ─── Mode bar & headline ───
+  const modeLabel = document.getElementById('qmode-label');
+  const backBtn = document.getElementById('qmode-back');
+  const headTitle = document.getElementById('qhead-title');
+  const tagline = document.getElementById('qhead-tagline');
+  if (mode === 'teams') {
+    modeLabel.innerHTML = `<strong>Team view</strong> · ${points.length} teams plotted`;
+    backBtn.style.display = 'none';
+    headTitle.textContent = 'How your teams distribute across the matrix';
+    tagline.textContent = "Each team plotted by activity (x) against productivity (y). Thresholds set at Flowace Demo's organizational average — quadrants show team performance relative to your own baseline. Dot size reflects team headcount. Click any team to drill into individual-level distribution.";
+  } else {
+    modeLabel.innerHTML = `<strong>${teamSelected.name}</strong> · ${points.length} individuals plotted`;
+    backBtn.style.display = 'inline-block';
+    headTitle.textContent = `${teamSelected.name} · individual distribution`;
+    tagline.textContent = `Each dot is one team member. Same Productivity × Activity matrix; same Flowace Demo-baseline thresholds. Hover any dot for the individual's metrics.`;
+  }
+
+  // ─── Bottom line ───
+  const starsStat = stats.find(s => s.quad === 'stars');
+  const riskStat = stats.find(s => s.quad === 'risk');
+  let bottomText;
+  if (mode === 'teams') {
+    const starsAbove = starsStat.pctPeople >= QIDEAL.stars;
+    const riskAbove = riskStat.pctPeople > QIDEAL.risk;
+    bottomText = `<span class="strong">${starsAbove ? 'Strong distribution.' : 'Room to grow.'}</span> ${starsStat.pctPeople.toFixed(1)}% of your workforce sits in the Stars quadrant — ${starsAbove ? `above the ${QIDEAL.stars}% ideal.` : `below the ${QIDEAL.stars}% ideal by ${(QIDEAL.stars - starsStat.pctPeople).toFixed(1)} pts.`} ${riskAbove ? `The lever is the <span class="strong">At Risk quadrant (${riskStat.pctPeople.toFixed(1)}%)</span> — Network Ops, Insurance, and Surgery anchor it. Lifting half their members into Efficient would close the gap.` : 'At Risk exposure is contained.'}`;
+  } else {
+    bottomText = `Within <span class="strong">${teamSelected.name}</span>, ${starsStat.pctPeople.toFixed(1)}% of members are in Stars and ${riskStat.pctPeople.toFixed(1)}% sit in At Risk. Use this to identify 1:1 candidates and replicate top-performer workflow.`;
+  }
+  document.getElementById('quadrant-bottomline').innerHTML = `
+    <div class="bb-label">Quadrant insight</div>
+    <div class="bb-text">${bottomText}</div>
+  `;
+}
+
+// Expose drill-in handler
+window.openTeamQuadrant = (idx) => {
+  renderQuadrant('individuals', idx);
+  // Scroll just the section header into view
+  document.getElementById('qhead-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+// Back button binding
+document.getElementById('qmode-back').addEventListener('click', () => {
+  renderQuadrant('teams');
+  document.getElementById('qhead-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+// Initial render
+renderQuadrant('teams');
+
+// ============================================================
+// Benchmark widget
+
+
+// Render at-risk panel on load
+renderAtRisk();
+</script>
+</body>
+</html>
