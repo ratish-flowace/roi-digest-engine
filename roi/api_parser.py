@@ -1,19 +1,4 @@
-"""
-API-based data parser for Flowace ROI dashboard.
-
-Fetches from the getDailywiseTimesheet endpoint and produces the same dict
-schema as parse_csv(), so the rest of the pipeline (enrich, agent, render)
-is completely unchanged.
-
-All metric computation is Python-only — no LLM math.
-
-Metric derivation (verified against live data):
-    active_ms = totalClassifiedDuration + totalUnClassifiedDuration
-    idle_ms   = totalIdleDuration
-    logged_h  = (active_ms + idle_ms) / 3_600_000
-    activity_pct     = active_h / logged_h * 100
-    productivity_pct = productive_h / active_h * 100
-"""
+"""API-based data parser — produces the same dict schema as parse_csv()."""
 
 import json
 import urllib.request
@@ -22,7 +7,7 @@ from datetime import datetime
 
 from .parser import _build_metrics
 
-_MS = 3_600_000  # milliseconds per hour
+_MS = 3_600_000  # ms per hour
 
 
 def _ms_h(ms: int) -> float:
@@ -30,21 +15,10 @@ def _ms_h(ms: int) -> float:
 
 
 def _entry_minutes(iso_ts: str) -> float | None:
-    """
-    Extract minutes-from-midnight from a Flowace timestamp.
-
-    Flowace stores firstEntry/lastEntry in the user's LOCAL timezone regardless
-    of the suffix ("Z" or "+00:00"). Verified by cross-checking against the CSV
-    export (Avg Work Start/End Time) which also uses local time — applying the
-    offset would double-convert and shift times by the full UTC offset.
-
-    This is correct for multi-timezone tenants: each user's timestamp is already
-    in their own local time, so no offset is needed for any timezone.
-    """
+    # Flowace stores firstEntry/lastEntry in local time despite the Z suffix
     if not iso_ts:
         return None
     try:
-        # Strip any timezone suffix — value is already local
         clean = iso_ts.split("+")[0].replace("Z", "").strip()
         dt = datetime.fromisoformat(clean)
         minutes = dt.hour * 60 + dt.minute + dt.second / 60.0
@@ -54,15 +28,9 @@ def _entry_minutes(iso_ts: str) -> float | None:
 
 
 def _user_avg_times(day_wise_data: list) -> tuple:
-    """
-    Average work-start and work-end times across active days for one user.
-    Returns (avg_start_min, avg_end_min) — each float | None.
-    End times are kept as raw (potentially >1440) for correct cross-user
-    averaging; caller applies % 1440 after all averaging is done.
-    """
+    # Returns (avg_start_min, avg_end_min); end may be >1440 for past-midnight workers
     starts, ends = [], []
     for d in day_wise_data:
-        # skip days with no activity
         if (d.get("unclassified_duration", 0)
                 + d.get("classified_duration", 0)
                 + d.get("idle_duration", 0)) == 0:
@@ -72,20 +40,13 @@ def _user_avg_times(day_wise_data: list) -> tuple:
         if s is not None:
             starts.append(s)
         if s is not None and e is not None:
-            # normalize past-midnight end times: if lastEntry wrapped to next day
-            # (e.g. 00:33 = 33 min < start 15:45 = 945 min), add 24h so the
-            # average isn't dragged toward early morning. Matches Flowace CSV
-            # pre-computation which handles this on their side.
             if e < s:
-                e += 1440
+                e += 1440  # normalize past-midnight end (e.g. 00:33 → 24:33)
             ends.append(e)
         elif e is not None:
             ends.append(e)
 
     avg_start = round(sum(starts) / len(starts), 1) if starts else None
-    # Return raw end (may be > 1440 for past-midnight workers). Do NOT wrap here —
-    # _build_metrics averages per-user values, so mixing raw 1473 with 1301 gives
-    # a sensible ~1387 (11pm), whereas wrapping 1473→33 first would give ~660 (11am).
     avg_end   = round(sum(ends) / len(ends), 1) if ends else None
     return avg_start, avg_end
 
@@ -97,17 +58,13 @@ def fetch_timesheets(
     base_url: str,
     origin: str,
 ) -> list:
-    """
-    POST to getDailywiseTimesheet and return the parsed JSON array.
-    Uses only stdlib — no requests/httpx dependency.
-    origin: tenant URL e.g. "https://acme.flowace.in" (no trailing slash).
-    """
+    # origin: tenant URL e.g. "https://acme.flowace.in" (no trailing slash)
     origin  = origin.rstrip("/")
     url     = f"{base_url.rstrip('/')}/v1/Timesheets/getDailywiseTimesheet"
     payload = json.dumps({
-        "userId":        [],
-        "startDate":     start_date,
-        "endDate":       end_date,
+        "userId":          [],
+        "startDate":       start_date,
+        "endDate":         end_date,
         "activeUsersOnly": True,
     }).encode("utf-8")
 
@@ -132,6 +89,8 @@ def fetch_timesheets(
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return json.loads(resp.read().decode("utf-8"))
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Timesheet API returned invalid JSON: {e}") from e
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")[:400]
         raise RuntimeError(f"Timesheet API returned HTTP {e.code}: {body}") from e
@@ -146,19 +105,9 @@ def parse_api(
     base_url: str = "https://api.flowace.in/prod",
     origin: str = "https://gozo.flowace.in",
 ) -> dict:
-    """
-    Fetch timesheet data from the Flowace API and return the same dict schema
-    as parse_csv().  Pass the result straight to enrich() then call_analyst().
-
-    Args:
-        token:      Flowace Authorization header value.
-        start_date: "YYYY-MM-DD"
-        end_date:   "YYYY-MM-DD"
-        base_url:   API root (default: production).
-    """
     raw = fetch_timesheets(token, start_date, end_date, base_url, origin)
 
-    users: list  = []
+    users: list   = []
     inactive: int = 0
 
     for u in raw:
@@ -167,8 +116,7 @@ def parse_api(
         idle_ms   =  u.get("totalIdleDuration",          0)
         logged_h  = _ms_h(active_ms + idle_ms)
 
-        # Mirror CSV parser threshold: skip users with < 3 minutes logged
-        if logged_h < 0.05:
+        if logged_h < 0.05:  # same inactivity threshold as parse_csv
             inactive += 1
             continue
 
@@ -181,7 +129,7 @@ def parse_api(
         activity_pct     = round(active_h / logged_h * 100, 2) if logged_h > 0 else 0.0
         productivity_pct = round(prod_h   / active_h * 100, 2) if active_h > 0 else 0.0
 
-        dw         = u.get("dayWiseData", [])
+        dw             = u.get("dayWiseData", [])
         avg_start, avg_end = _user_avg_times(dw)
 
         days = sum(
@@ -191,7 +139,6 @@ def parse_api(
                 + d.get("idle_duration",          0)) > 0
         )
 
-        # Same separator as CSV (";" — confirmed against live data)
         teams_raw = u.get("teamNames", "").strip()
         teams = [t.strip() for t in teams_raw.split(";") if t.strip()] or ["No Team"]
 
@@ -221,9 +168,7 @@ def parse_api(
     }
     result = _build_metrics(meta, users, inactive)
 
-    # Normalize avg_end_min to 0–1439 for template display.
-    # Must happen AFTER _build_metrics so all org/team averages are computed
-    # from the raw (potentially >1440) per-user values for correct results.
+    # Wrap avg_end_min to 0–1439 after all averaging is done
     def _norm(m):
         return round(m % 1440, 1) if m is not None else None
 

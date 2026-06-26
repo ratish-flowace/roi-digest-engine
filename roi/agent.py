@@ -26,7 +26,15 @@ def _converse(client, model_id: str, system_text: str, user_text: str,
         messages=[{"role": "user", "content": [{"text": user_text}]}],
         inferenceConfig={"maxTokens": max_tokens, "temperature": temp},
     )
-    text  = resp["output"]["message"]["content"][0]["text"].strip()
+    text = (
+        resp.get("output", {})
+            .get("message", {})
+            .get("content", [{}])[0]
+            .get("text", "")
+            .strip()
+    )
+    if not text:
+        raise ValueError("Empty or malformed response from Bedrock")
     usage = resp.get("usage", {})
     return text, usage
 
@@ -187,7 +195,10 @@ def fallback_insights(data: dict, company: str) -> dict:
             for t in teams
         },
         "recommendations": [
-            f"Investigate idle time in {en['bottom_team']} ({teams[-1]['idle_pct']}% idle rate).",
+            *(
+                [f"Investigate idle time in {en['bottom_team']} ({teams[-1]['idle_pct']}% idle rate)."]
+                if en["bottom_team"] else []
+            ),
             f"Replicate {en['top_team']}'s workflow patterns across lower-performing teams.",
             f"Schedule 1:1s with {len(data['at_risk'])} at-risk employees identified below org average.",
         ],
