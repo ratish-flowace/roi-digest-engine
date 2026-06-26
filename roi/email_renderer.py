@@ -15,7 +15,9 @@ Rules strictly followed:
 
 import os
 import re
+from urllib.parse import quote_plus
 
+from .config import TRACKING_PIXEL_URL
 from .parser import _fh
 
 # ── Colors (hardcoded — no CSS variables in email) ────────────────────────────
@@ -334,7 +336,23 @@ def _footer(company, generated_at):
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def render_email_html(company: str, data: dict, insights: dict) -> str:
+def _tracking_pixel(company: str, report_date: str, pixel_url: str) -> str:
+    if not pixel_url:
+        return ""
+    url = (
+        f"{pixel_url.rstrip('?&')}"
+        f"?company={quote_plus(company)}"
+        f"&type=email_open"
+        f"&date={quote_plus(report_date)}"
+    )
+    return (
+        f'<img src="{url}" width="1" height="1" alt="" border="0" '
+        f'style="display:block;width:1px;height:1px;max-width:1px;max-height:1px;'
+        f'overflow:hidden;visibility:hidden;mso-hide:all" />'
+    )
+
+
+def render_email_html(company: str, data: dict, insights: dict, pixel_url: str = "") -> str:
     """
     Generate an email-safe static HTML digest.
     Table-based layout, inline styles, no JS, no CSS variables, no external fonts.
@@ -374,6 +392,8 @@ def render_email_html(company: str, data: dict, insights: dict) -> str:
         + _footer(company, data["generated_at"])
     )
 
+    pixel_html = _tracking_pixel(company, data["generated_at"], pixel_url or TRACKING_PIXEL_URL)
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -384,5 +404,6 @@ def render_email_html(company: str, data: dict, insights: dict) -> str:
 </head>
 <body style="margin:0;padding:0;background:{_BG};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
 {_wrap(body)}
+{pixel_html}
 </body>
 </html>"""

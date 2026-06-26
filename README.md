@@ -121,6 +121,54 @@ The IAM user/role needs:
 }
 ```
 
+## Analytics tracking
+
+Both outputs support opt-in tracking. Set environment variables in `.env` or pass them as CLI flags — if neither is set, the HTML is generated exactly as before with no tracking code.
+
+### Dashboard (GA4)
+
+```bash
+# .env
+GA4_MEASUREMENT_ID=G-XXXXXXXXXX
+
+# or per-run
+python generate_roi.py report.csv --company "Acme Corp" --ga4-id G-XXXXXXXXXX
+```
+
+Once set, every time a recipient opens the dashboard HTML these events fire automatically to your GA4 property:
+
+| Event | What it captures |
+|---|---|
+| `page_view` | Report opened — includes `company_name` and `report_date` |
+| `scroll_section` | Each dashboard section as it scrolls into view |
+| `time_on_page` | Heartbeat every 30s up to 5 min |
+| `cta_click` | Any button or link clicked, with text and href |
+
+**One-time GA4 admin step** — to filter reports by company, register two custom dimensions:
+
+1. Go to GA4 → Admin → Custom definitions → Custom dimensions
+2. Add `company_name` (Event scope)
+3. Add `report_date` (Event scope)
+
+Events still fire without this step — you just won't be able to filter by company until the dimensions are registered. Data appears in Realtime within seconds; standard reports within 24–48 hours.
+
+### Email digest (tracking pixel)
+
+```bash
+# .env
+TRACKING_PIXEL_URL=https://your-server/pixel.gif
+
+# or per-run
+python generate_roi.py report.csv --company "Acme Corp" --pixel-url https://your-server/pixel.gif
+```
+
+Embeds a 1×1 invisible image in the email. When opened, the client fetches:
+```
+https://your-server/pixel.gif?company=Acme+Corp&type=email_open&date=18+Jun+2026
+```
+
+The pixel URL can point to any endpoint — your own server, a Cloudflare Worker, or a no-code webhook (Zapier, Make). The email pixel is independent of GA4.
+
 ## Dependencies
 
 ```bash

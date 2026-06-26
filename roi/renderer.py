@@ -4,6 +4,7 @@ import json
 import os
 import re
 
+from .config import GA4_MEASUREMENT_ID
 from .parser import _fh, _clock
 
 # Template is one level up from this file (project root)
@@ -210,7 +211,66 @@ _RESPONSIVE_CSS = """\
 """
 
 
-def render_html(company: str, data: dict, insights: dict) -> str:
+def _build_tracking_html(company: str, report_date: str, measurement_id: str) -> str:
+    if not measurement_id:
+        return ""
+    safe_company = company.replace("\\", "\\\\").replace("'", "\\'")
+    safe_date    = report_date.replace("\\", "\\\\").replace("'", "\\'")
+    return f"""<script async src="https://www.googletagmanager.com/gtag/js?id={measurement_id}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){{ dataLayer.push(arguments); }}
+  gtag('js', new Date());
+  gtag('config', '{measurement_id}', {{
+    'custom_map': {{'dimension1': 'company_name', 'dimension2': 'report_date'}}
+  }});
+  gtag('event', 'page_view', {{
+    'company_name': '{safe_company}',
+    'report_date':  '{safe_date}'
+  }});
+  (function() {{
+    var fired = new Set();
+    var obs = new IntersectionObserver(function(entries) {{
+      entries.forEach(function(e) {{
+        if (e.isIntersecting && !fired.has(e.target)) {{
+          fired.add(e.target);
+          var t = (e.target.querySelector('.section-title') || {{}}).textContent || 'unknown';
+          gtag('event', 'scroll_section', {{
+            'company_name': '{safe_company}',
+            'report_date':  '{safe_date}',
+            'section_title': t.trim()
+          }});
+        }}
+      }});
+    }}, {{threshold: 0.3}});
+    document.querySelectorAll('.section').forEach(function(el) {{ obs.observe(el); }});
+  }})();
+  (function() {{
+    var elapsed = 0, ticks = 0;
+    var timer = setInterval(function() {{
+      elapsed += 30; ticks += 1;
+      gtag('event', 'time_on_page', {{
+        'company_name': '{safe_company}',
+        'report_date':  '{safe_date}',
+        'seconds': elapsed
+      }});
+      if (ticks >= 10) {{ clearInterval(timer); }}
+    }}, 30000);
+  }})();
+  document.addEventListener('click', function(e) {{
+    var el = e.target.closest('a[href], button');
+    if (!el) return;
+    gtag('event', 'cta_click', {{
+      'company_name':  '{safe_company}',
+      'report_date':   '{safe_date}',
+      'element_text':  (el.textContent || '').trim().slice(0, 100),
+      'element_href':  el.getAttribute('href') || ''
+    }});
+  }});
+</script>"""
+
+
+def render_html(company: str, data: dict, insights: dict, ga4_id: str = "") -> str:
     css, body, js = _load_template()
 
     org = data["organization"]
@@ -382,6 +442,7 @@ def render_html(company: str, data: dict, insights: dict) -> str:
     js = _INJECTED_JS + js + "\n\n// Render at-risk panel on load\nrenderAtRisk();"
 
     blob = json.dumps(data, separators=(",", ":"))
+    tracking_html = _build_tracking_html(company, data["generated_at"], ga4_id or GA4_MEASUREMENT_ID)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -405,5 +466,6 @@ def render_html(company: str, data: dict, insights: dict) -> str:
 <script>
 {js}
 </script>
+{tracking_html}
 </body>
 </html>"""

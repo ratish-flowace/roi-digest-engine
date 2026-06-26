@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # Flowace ROI Dashboard Generator
-# Usage: ./run.sh <csv_file> [company_name] [output_file]
 #
-# Examples:
-#   ./run.sh report.csv
+# CSV mode:
 #   ./run.sh report.csv "Acme Corp"
 #   ./run.sh report.csv "Acme Corp" acme_roi.html
+#
+# API mode:
+#   ./run.sh --api "Acme Corp" --start 2026-06-01 --end 2026-06-26
+#   ./run.sh --api "Acme Corp" --start 2026-06-01 --end 2026-06-26 --token "xxx"
 
 set -e
 
@@ -14,19 +16,9 @@ VENV_DIR="$(dirname "$0")/.venv"
 PYTHON="$VENV_DIR/bin/python3"
 ENV_FILE="$(dirname "$0")/.env"
 
-# ── Args ──────────────────────────────────────────────────────────────────────
-CSV="${1:-}"
-COMPANY="${2:-Flowace Tenant}"
-OUTPUT="${3:-}"
-
-if [ -z "$CSV" ]; then
-  echo "Usage: ./run.sh <csv_file> [company_name] [output_file]"
-  exit 1
-fi
-
-if [ ! -f "$CSV" ]; then
-  echo "Error: CSV file not found: $CSV"
-  exit 1
+# ── Load credentials from .env if present ────────────────────────────────────
+if [ -f "$ENV_FILE" ]; then
+  export $(grep -v '^#' "$ENV_FILE" | xargs)
 fi
 
 # ── Setup venv if missing ─────────────────────────────────────────────────────
@@ -37,18 +29,32 @@ if [ ! -f "$PYTHON" ]; then
   echo "Dependencies installed."
 fi
 
-# ── Load credentials from .env if present ────────────────────────────────────
-if [ -f "$ENV_FILE" ]; then
-  export $(grep -v '^#' "$ENV_FILE" | xargs)
-fi
+# ── Route: API mode vs CSV mode ───────────────────────────────────────────────
+if [ "${1:-}" = "--api" ]; then
+  # API mode: ./run.sh --api "Company" --start YYYY-MM-DD --end YYYY-MM-DD [--token xxx]
+  COMPANY="${2:-Flowace Tenant}"
+  shift 2
+  # Pass all remaining flags straight through to the Python CLI
+  "$PYTHON" generate_roi.py --api --company "$COMPANY" "$@"
+else
+  # CSV mode (original behaviour)
+  CSV="${1:-}"
+  COMPANY="${2:-Flowace Tenant}"
+  OUTPUT="${3:-}"
 
-# ── Run ───────────────────────────────────────────────────────────────────────
-# Default output goes into outputs/
-if [ -z "$OUTPUT" ]; then
+  if [ -z "$CSV" ]; then
+    echo "CSV mode:  ./run.sh <csv_file> [company_name] [output_file]"
+    echo "API mode:  ./run.sh --api <company_name> --start YYYY-MM-DD --end YYYY-MM-DD"
+    exit 1
+  fi
+
+  if [ ! -f "$CSV" ]; then
+    echo "Error: CSV file not found: $CSV"
+    exit 1
+  fi
+
   SLUG=$(echo "$COMPANY" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g')
-  OUTPUT="$(dirname "$0")/outputs/${SLUG}_roi.html"
+  OUTPUT="${OUTPUT:-$(dirname "$0")/outputs/${SLUG}_roi.html}"
+
+  "$PYTHON" generate_roi.py "$CSV" --company "$COMPANY" --output "$OUTPUT"
 fi
-
-ARGS=("$CSV" "--company" "$COMPANY" "--output" "$OUTPUT")
-
-"$PYTHON" generate_roi.py "${ARGS[@]}"
