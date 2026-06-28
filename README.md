@@ -169,6 +169,48 @@ https://your-server/pixel.gif?company=Acme+Corp&type=email_open&date=18+Jun+2026
 
 The pixel URL can point to any endpoint — your own server, a Cloudflare Worker, or a no-code webhook (Zapier, Make). The email pixel is independent of GA4.
 
+## Sharing via hosted link
+
+Add `--share` to any run to upload the dashboard to S3 and get back a time-limited link. The link opens the full interactive dashboard in a browser — no hosting setup needed on your end.
+
+```bash
+# CSV mode
+python generate_roi.py report.csv --company "Acme Corp" --share --bucket my-bucket
+
+# API mode
+python generate_roi.py --api --start 2026-06-01 --end 2026-06-26 \
+  --company "Acme Corp" --share --bucket my-bucket
+```
+
+Output:
+```
+  Dashboard → outputs/acme_corp_roi.html  (312,455 chars)
+  Shared    → https://my-bucket.s3.amazonaws.com/reports/acme_corp_...  (expires in 7d)
+https://my-bucket.s3.amazonaws.com/reports/acme_corp_roi_1751234567.html?...
+```
+
+The URL is printed to both stderr (with label) and stdout (clean, for piping).
+
+**Expiry**: S3 presigned URLs expire after a maximum of 7 days. Use `--share-expiry N` to set fewer days:
+
+```bash
+python generate_roi.py report.csv --company "Acme" --share --bucket my-bucket --share-expiry 3
+```
+
+**S3 bucket setup:**
+
+1. Create an S3 bucket in the same region as your Bedrock setup
+2. Add `S3_BUCKET=my-bucket` to `.env`, or pass `--bucket` per run
+3. Ensure the IAM user/role has these permissions on the bucket:
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["s3:PutObject", "s3:GetObject"],
+  "Resource": "arn:aws:s3:::my-bucket/reports/*"
+}
+```
+
 ## Dependencies
 
 ```bash

@@ -2,15 +2,9 @@
 """
 Flowace ROI Dashboard Generator — CLI entry point.
 
-CSV mode (default):
-    python generate_roi.py report.csv --company "Acme Corp"
-
-API mode:
-    python generate_roi.py --api --start 2026-06-01 --end 2026-06-26 --company "Acme Corp"
-    python generate_roi.py --api --token "xxx" --start 2026-06-01 --end 2026-06-26 --company "Acme"
-
-For platform/API integration, import directly:
-    from roi import generate_roi_html, generate_roi_outputs_from_api
+CSV mode:  python generate_roi.py report.csv --company "Acme Corp"
+API mode:  python generate_roi.py --api --start 2026-06-01 --end 2026-06-26 --company "Acme"
+Share:     add --share --bucket my-s3-bucket  to either mode
 """
 
 import argparse
@@ -24,7 +18,7 @@ from roi import (
     DEFAULT_REGION,
     DEFAULT_MODEL_ID,
 )
-from roi.config import FLOWACE_API_TOKEN, FLOWACE_API_URL
+from roi.config import FLOWACE_API_TOKEN, FLOWACE_API_URL, S3_BUCKET
 
 
 def main():
@@ -40,7 +34,7 @@ def main():
     # ── Input source ──────────────────────────────────────────────────────────
     p.add_argument("csv", nargs="?", default=None,
                    help="Path to Workforce Efficiency CSV export (CSV mode)")
-    p.add_argument("--api", action="store_true",
+    p.add_argument("--api",     action="store_true",
                    help="Fetch live data from Flowace API instead of a CSV")
     p.add_argument("--token",   default="",
                    help="Flowace API auth token. Overrides FLOWACE_API_TOKEN env var.")
@@ -68,6 +62,14 @@ def main():
                    help="Tracking pixel URL for email. Overrides TRACKING_PIXEL_URL env var.")
     p.add_argument("--no-email",  action="store_true",
                    help="Skip generating the email digest")
+
+    # ── Share options ─────────────────────────────────────────────────────────
+    p.add_argument("--share",        action="store_true",
+                   help="Upload dashboard to S3 and print a presigned link")
+    p.add_argument("--share-expiry", type=int, default=7,
+                   help="Presigned link expiry in days, max 7 (default: 7)")
+    p.add_argument("--bucket",       default="",
+                   help="S3 bucket name. Overrides S3_BUCKET env var.")
 
     args = p.parse_args()
 
@@ -120,6 +122,20 @@ def main():
         with open(email_out, "w", encoding="utf-8") as f:
             f.write(outputs["email"])
         print(f"  Email     → {email_out}  ({len(outputs['email']):,} chars)", file=sys.stderr)
+
+    # ── Upload + share ────────────────────────────────────────────────────────
+    if args.share:
+        bucket = args.bucket or S3_BUCKET
+        if not bucket:
+            print("Error: --bucket or S3_BUCKET env var required for --share", file=sys.stderr)
+            sys.exit(1)
+        expiry_days = min(args.share_expiry, 7)  # S3 hard limit is 7 days
+        from roi.uploader import upload_and_sign
+        url = upload_and_sign(
+            outputs["dashboard"], slug, bucket, args.region, expiry_days * 86400
+        )
+        print(f"  Shared    → {url}  (expires in {expiry_days}d)", file=sys.stderr)
+        print(url)  # stdout so it can be piped/captured
 
 
 if __name__ == "__main__":
