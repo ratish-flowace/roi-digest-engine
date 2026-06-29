@@ -222,7 +222,7 @@ def _build_tracking_html(company: str, report_date: str, measurement_id: str) ->
   function gtag(){{ dataLayer.push(arguments); }}
   gtag('js', new Date());
   gtag('config', '{measurement_id}', {{
-    'custom_map': {{'dimension1': 'company_name', 'dimension2': 'report_date'}}
+    'debug_mode': true
   }});
   gtag('event', 'page_view', {{
     'company_name': '{safe_company}',
@@ -267,6 +267,37 @@ def _build_tracking_html(company: str, report_date: str, measurement_id: str) ->
       'element_href':  el.getAttribute('href') || ''
     }});
   }});
+  (function() {{
+    var _map = {{
+      '.team-card':         'team_drill_down',
+      '.qdot':              'quadrant_open',
+      '.breadcrumb .crumb': 'breadcrumb_nav',
+      '.quadrant-back':     'quadrant_back',
+      '.td-back':           'individual_back'
+    }};
+    document.addEventListener('click', function(e) {{
+      Object.keys(_map).forEach(function(sel) {{
+        if (e.target.closest(sel)) {{
+          var label = '';
+          var el = e.target.closest(sel);
+          if (sel === '.team-card') {{
+            var nameEl = el.querySelector('.tc-name');
+            label = nameEl ? nameEl.textContent.trim() : '';
+          }} else if (sel === '.qdot') {{
+            label = el.getAttribute('data-team') || el.getAttribute('title') || '';
+          }} else if (sel === '.breadcrumb .crumb') {{
+            label = el.textContent.trim();
+          }}
+          gtag('event', 'dashboard_interaction', {{
+            'company_name':     '{safe_company}',
+            'report_date':      '{safe_date}',
+            'interaction_type': _map[sel],
+            'element_label':    label
+          }});
+        }}
+      }});
+    }});
+  }})();
 </script>"""
 
 
