@@ -221,9 +221,7 @@ def _build_tracking_html(company: str, report_date: str, measurement_id: str) ->
   window.dataLayer = window.dataLayer || [];
   function gtag(){{ dataLayer.push(arguments); }}
   gtag('js', new Date());
-  gtag('config', '{measurement_id}', {{
-    'debug_mode': true
-  }});
+  gtag('config', '{measurement_id}');
   gtag('event', 'page_view', {{
     'company_name': '{safe_company}',
     'report_date':  '{safe_date}'
