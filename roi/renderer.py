@@ -221,7 +221,7 @@ def _build_tracking_html(company: str, report_date: str, measurement_id: str) ->
   window.dataLayer = window.dataLayer || [];
   function gtag(){{ dataLayer.push(arguments); }}
   gtag('js', new Date());
-  gtag('config', '{measurement_id}');
+  gtag('config', '{measurement_id}', {{ 'send_page_view': false }});
   gtag('event', 'page_view', {{
     'company_name': '{safe_company}',
     'report_date':  '{safe_date}'
@@ -408,6 +408,20 @@ def render_html(company: str, data: dict, insights: dict, ga4_id: str = "") -> s
     if quadrant_section > 0:
         body = body[:quadrant_section] + at_risk_panel + "\n" + body[quadrant_section:]
 
+    # ── Cap teams grid at 12 — full list still present in individual drill-down data ──
+    all_teams_total = len(data["teams"])
+    if all_teams_total > 12:
+        data["teams"] = data["teams"][:12]
+        body = body.replace(
+            "Click any team to see individual-level data",
+            f"Top 12 of {all_teams_total} teams · click any card to drill down",
+        )
+    else:
+        body = body.replace(
+            "Click any team to see individual-level data",
+            f"{all_teams_total} team{'s' if all_teams_total != 1 else ''} · click any card to drill down",
+        )
+
     # ── Store insights in data blob ───────────────────────────────────────────
     data["benchmarks"]     = []
     data["team_insights"]  = insights.get("team_insights",  {})
@@ -444,13 +458,25 @@ def render_html(company: str, data: dict, insights: dict, ga4_id: str = "") -> s
         " ? `<div style=\"margin:0;padding:16px 28px 0\">"
         "<div style=\"padding:14px 18px;background:rgba(0,212,170,.06);"
         "border-left:3px solid rgba(0,212,170,.35);border-radius:0 6px 6px 0\">"
-        "<div style=\"font-size:13px;color:#D4D8DD;line-height:1.7\">"
+        "<div style=\"font-size:13px;color:#D4D8DD;line-height:1.7;word-break:break-word\">"
         "${getTeamNarrative(t.name)}</div></div></div>` : '';\n"
-        "  const indRows = inds.map((m, i) => {",
+        "  const indsShown = inds.length > 50 ? inds.slice(0, 50) : inds;\n"
+        "  const indCountNote = inds.length > 50"
+        " ? `<tr><td colspan='10' style='padding:12px 0;font-size:11px;color:#8A929E;text-align:center'>"
+        "Showing top 50 of ${inds.length} members — open full report for complete list</td></tr>` : '';\n"
+        "  const indRows = indsShown.map((m, i) => {",
     )
     js = js.replace(
         '</div>\n      <div style="overflow-x:auto">\n        <table class="individuals-table">',
         '</div>\n      ${narrativeHtml}\n      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">\n        <table class="individuals-table" style="min-width:560px">',
+    )
+    js = js.replace(
+        "<tbody>${indRows}</tbody>",
+        "<tbody>${indRows}${indCountNote}</tbody>",
+    )
+    js = js.replace(
+        "Showing ${inds.length} members",
+        "Showing ${indsShown.length}${inds.length > 50 ? ' of ' + inds.length : ''} members",
     )
     # Team card status labels + RAG dot + insight chip
     js = js.replace(
@@ -462,9 +488,26 @@ def render_html(company: str, data: dict, insights: dict, ga4_id: str = "") -> s
         '<div class="tc-name" style="display:flex;align-items:center;gap:4px">'
         '${t.name}${ragDot(ragProd(t.productivity_pct), "Productivity vs org avg")}</div>',
     )
+    # Keep headcount pinned top-right regardless of name length
+    js = js.replace(
+        '<div class="tc-headcount"><strong class="num">${t.n}</strong> members</div>',
+        '<div class="tc-headcount" style="flex-shrink:0;white-space:nowrap;margin-left:10px">'
+        '<strong class="num">${t.n}</strong> members</div>',
+    )
+    js = js.replace(
+        '<div class="tc-head">\n          <div>\n',
+        '<div class="tc-head">\n          <div style="min-width:0;flex:1">\n',
+    )
     js = js.replace(
         '</div>\n        <div class="tc-metrics">',
         '</div>\n        ${getTeamInsight(t.name) ? `<div style="font-size:11px;color:#8A929E;font-style:italic;margin:6px 0 2px;line-height:1.4">${getTeamInsight(t.name)}</div>` : ""}\n        <div class="tc-metrics">',
+    )
+
+    # Quadrant label truncation — cap visible SVG text, tooltip (p.name) stays full
+    js = js.replace(
+        "return { ...p, sx: scaleX(p.x, cfg), sy: scaleY(p.y, cfg), r: dotRadius(p.n), label, i };",
+        "if (label.length > 30) label = label.slice(0, 28) + '…';\n"
+        "      return { ...p, sx: scaleX(p.x, cfg), sy: scaleY(p.y, cfg), r: dotRadius(p.n), label, i };",
     )
 
     # Prepend RAG/insight helpers; append at-risk init call

@@ -17,6 +17,20 @@ import os
 import re
 from urllib.parse import quote_plus
 
+
+def _add_bgcolor(html: str) -> str:
+    # Add bgcolor attribute for Gmail compatibility — CSS background is stripped on paste
+    def _patch(m):
+        tag, color = m.group(1), m.group(2)
+        if 'bgcolor=' in tag:
+            return m.group(0)
+        return f'{tag} bgcolor="{color}">'
+    return re.sub(
+        r'(<(?:table|td|tr)[^>]*style="[^"]*background:(#[0-9A-Fa-f]{6})[^"]*")[^>]*>',
+        _patch,
+        html,
+    )
+
 from .config import TRACKING_PIXEL_URL
 from .parser import _fh
 
@@ -42,17 +56,12 @@ _MONO     = "'Courier New', Courier, monospace"
 # ── Logo ──────────────────────────────────────────────────────────────────────
 
 def _get_logo_src() -> str:
-    """Extract base64 Flowace logo from dashboard_template.html."""
-    tpl = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "dashboard_template.html",
-    )
-    if not os.path.exists(tpl):
+    import base64
+    png = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logo.png")
+    if not os.path.exists(png):
         return ""
-    with open(tpl, encoding="utf-8") as f:
-        html = f.read()
-    m = re.search(r'src="(data:image/png;base64,[^"]+)"', html)
-    return m.group(1) if m else ""
+    with open(png, "rb") as f:
+        return "data:image/png;base64," + base64.b64encode(f.read()).decode()
 
 
 _LOGO_SRC = _get_logo_src()
@@ -84,7 +93,7 @@ def _wrap(content, bg=_BG, max_width=600):
     return (
         f'<table width="100%" border="0" cellpadding="0" cellspacing="0" '
         f'style="background:{bg};font-family:{_FONT}">'
-        f'<tr><td align="center" style="padding:24px 16px">'
+        f'<tr><td align="center" style="padding:24px 16px;background:{bg}">'
         f'<table width="{max_width}" border="0" cellpadding="0" cellspacing="0" '
         f'style="max-width:{max_width}px;width:100%">'
         f'{content}'
@@ -100,7 +109,7 @@ def _row(content, bg=_BG_CARD, border_top=False):
     )
 
 def _spacer(h=16):
-    return f'<tr><td style="height:{h}px;font-size:0;line-height:0">&nbsp;</td></tr>'
+    return f'<tr><td style="height:{h}px;font-size:0;line-height:0;background:{_BG}">&nbsp;</td></tr>'
 
 def _section_label(text):
     return (
@@ -114,22 +123,24 @@ def _section_label(text):
 
 def _header(company, period, generated_at):
     logo_html = (
-        f'<img src="{_LOGO_SRC}" height="28" style="display:block;height:28px;border:0" alt="Flowace">'
+        f'<img src="{_LOGO_SRC}" width="123" height="28" alt="Flowace"'
+        f' style="display:block;width:123px;height:28px;border:0">'
         if _LOGO_SRC else
-        f'<span style="font-size:18px;font-weight:700;color:{_TEAL};font-family:{_FONT}">Flowace</span>'
+        f'<span style="font-size:18px;font-weight:700;color:{_TEAL};font-family:{_FONT}'
+        f';white-space:nowrap">Flowace</span>'
     )
     return f"""
 <tr>
   <td style="background:{_BG_CARD};padding:20px 28px;border-bottom:1px solid {_BORDER}">
     <table width="100%" border="0" cellpadding="0" cellspacing="0">
       <tr>
-        <td>{logo_html}</td>
-        <td align="right">
-          <p style="margin:0;font-size:13px;font-weight:600;color:{_TEXT};font-family:{_FONT}">{company}</p>
-          <p style="margin:2px 0 0;font-size:11px;color:{_MUTED};font-family:{_FONT}">{period}</p>
-          <p style="margin:4px 0 0;font-size:9px;font-weight:700;letter-spacing:.12em;
-             text-transform:uppercase;color:{_ORANGE};border:1px solid {_ORANGE};
-             border-radius:3px;padding:2px 7px;display:inline-block;font-family:{_FONT}">
+        <td width="140" valign="top" style="vertical-align:top">{logo_html}</td>
+        <td valign="top" style="text-align:right;vertical-align:top;padding-left:12px">
+          <p style="margin:0;font-size:13px;font-weight:600;color:{_TEXT};font-family:{_FONT};text-align:right;word-break:break-word">{company}</p>
+          <p style="margin:2px 0 0;font-size:11px;color:{_MUTED};font-family:{_FONT};text-align:right">{period}</p>
+          <p style="margin:6px 0 0;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+             color:{_ORANGE};border:1px solid {_ORANGE};border-radius:3px;padding:2px 7px;
+             display:inline-block;font-family:{_FONT};text-align:right;white-space:nowrap">
             Confidential
           </p>
         </td>
@@ -210,45 +221,52 @@ def _teams(teams, org_prod):
     if not teams:
         return ""
 
+    total = len(teams)
+    visible = teams[:10]
+    more_count = total - 10
+    label = (
+        f"Team Performance — top 10 of {total} teams"
+        if more_count > 0 else
+        f"Team Performance ({total} team{'s' if total != 1 else ''})"
+    )
+
     rows = ""
-    for t in teams:
+    for t in visible:
         status_label, status_color = _team_status(t.get("_prod_delta", 0))
         dot, dot_color, _ = _rag_prod(t["productivity_pct"], org_prod)
         rows += (
             f'<tr style="border-bottom:1px solid {_BORDER}">'
-            f'<td style="padding:10px 0;font-size:12px;font-weight:500;color:{_TEXT};font-family:{_FONT}">{t["name"]}</td>'
-            f'<td style="padding:10px 4px;font-size:11px;color:{_MUTED};text-align:center;font-family:{_FONT}">{t["n"]}</td>'
-            f'<td style="padding:10px 4px;font-size:12px;font-weight:600;color:{dot_color};'
-            f'text-align:center;font-family:{_MONO}">'
-            f'<span style="color:{dot_color}">{dot}</span> {t["productivity_pct"]}%</td>'
-            f'<td style="padding:10px 4px;font-size:12px;color:{_SOFT};text-align:center;font-family:{_MONO}">{t["activity_pct"]}%</td>'
-            f'<td style="padding:10px 0;text-align:right">'
-            f'<span style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;'
-            f'padding:2px 7px;border-radius:3px;color:{status_color};border:1px solid {status_color};'
-            f'font-family:{_FONT}">{status_label}</span>'
+            f'<td width="45%" style="padding:10px 0;font-family:{_FONT}">'
+            f'<p style="margin:0;font-size:12px;font-weight:500;color:{_TEXT};word-break:break-word">{t["name"]}</p>'
+            f'<p style="margin:3px 0 0;font-size:10px;font-weight:700;letter-spacing:.06em;'
+            f'text-transform:uppercase;color:{status_color};white-space:nowrap">● {status_label}</p>'
             f'</td>'
+            f'<td style="padding:10px 4px;font-size:11px;color:{_MUTED};text-align:center;white-space:nowrap;font-family:{_FONT}">{t["n"]}</td>'
+            f'<td style="padding:10px 4px;font-size:12px;font-weight:600;color:{dot_color};'
+            f'text-align:center;white-space:nowrap;font-family:{_MONO}">'
+            f'<span style="color:{dot_color}">{dot}</span> {t["productivity_pct"]}%</td>'
+            f'<td style="padding:10px 0;font-size:12px;color:{_SOFT};text-align:center;white-space:nowrap;font-family:{_MONO}">{t["activity_pct"]}%</td>'
             f'</tr>'
         )
 
     return f"""
 <tr>
   <td style="background:{_BG_CARD};padding:20px 28px">
-    {_section_label("Team Performance")}
+    {_section_label(label)}
     <table width="100%" border="0" cellpadding="0" cellspacing="0">
       <tr style="border-bottom:1px solid {_BORDER}">
-        <th style="text-align:left;font-size:9px;font-weight:600;letter-spacing:.1em;
+        <th width="45%" style="text-align:left;font-size:9px;font-weight:600;letter-spacing:.1em;
             text-transform:uppercase;color:{_DIM};padding:0 0 8px;font-family:{_FONT}">Team</th>
         <th style="text-align:center;font-size:9px;font-weight:600;letter-spacing:.1em;
-            text-transform:uppercase;color:{_DIM};padding:0 4px 8px;font-family:{_FONT}">Members</th>
+            text-transform:uppercase;color:{_DIM};padding:0 4px 8px;white-space:nowrap;font-family:{_FONT}">Members</th>
         <th style="text-align:center;font-size:9px;font-weight:600;letter-spacing:.1em;
-            text-transform:uppercase;color:{_DIM};padding:0 4px 8px;font-family:{_FONT}">Productivity</th>
+            text-transform:uppercase;color:{_DIM};padding:0 4px 8px;white-space:nowrap;font-family:{_FONT}">Prod %</th>
         <th style="text-align:center;font-size:9px;font-weight:600;letter-spacing:.1em;
-            text-transform:uppercase;color:{_DIM};padding:0 4px 8px;font-family:{_FONT}">Activity</th>
-        <th style="text-align:right;font-size:9px;font-weight:600;letter-spacing:.1em;
-            text-transform:uppercase;color:{_DIM};padding:0 0 8px;font-family:{_FONT}">Status</th>
+            text-transform:uppercase;color:{_DIM};padding:0 0 8px;white-space:nowrap;font-family:{_FONT}">Activity %</th>
       </tr>
       {rows}
     </table>
+    {f'<p style="margin:10px 0 0;font-size:11px;color:{_MUTED};font-family:{_FONT}">+ {more_count} more teams — see full dashboard for complete breakdown.</p>' if more_count > 0 else ""}
   </td>
 </tr>"""
 
@@ -288,17 +306,18 @@ def _at_risk(at_risk_list, at_risk_detail):
         detail = at_risk_detail.get(u["name"], "")
         rows += (
             f'<tr style="border-bottom:1px solid {_BORDER}">'
-            f'<td style="padding:10px 0">'
-            f'<p style="margin:0;font-size:12px;font-weight:600;color:{_TEXT};font-family:{_FONT}">{u["name"]}</p>'
-            f'<p style="margin:2px 0 0;font-size:10px;color:{_MUTED};font-family:{_FONT}">{", ".join(u["teams"])}</p>'
+            f'<td valign="top" style="padding:10px 0;vertical-align:top">'
+            f'<p style="margin:0;font-size:12px;font-weight:600;color:{_TEXT};font-family:{_FONT};word-break:break-word">{u["name"]}</p>'
+            f'<p style="margin:2px 0 0;font-size:10px;color:{_MUTED};font-family:{_FONT};word-break:break-word;overflow-wrap:break-word">{", ".join(u["teams"])}</p>'
             f'{"" if not detail else f"""<p style="margin:4px 0 0;font-size:11px;color:{_SOFT};line-height:1.4;font-family:{_FONT}">{detail}</p>"""}'
             f'</td>'
-            f'<td style="padding:10px 0;text-align:right;vertical-align:top;white-space:nowrap">'
-            f'<span style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;'
+            f'<td width="80" valign="top" style="padding:10px 0 10px 10px;text-align:right;vertical-align:top;white-space:nowrap">'
+            f'<span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;'
             f'padding:2px 7px;border-radius:3px;color:{badge_color};background:{badge_bg};'
-            f'border:1px solid {badge_color};font-family:{_FONT}">{badge_label}</span>'
-            f'<p style="margin:4px 0 0;font-size:13px;font-weight:700;color:{_ORANGE};'
-            f'text-align:right;font-family:{_MONO}">{u["productivity_pct"]}%</p>'
+            f'border:1px solid {badge_color};font-family:{_FONT};white-space:nowrap;display:inline-block;text-align:center">{badge_label}</span>'
+            f'<p style="margin:5px 0 0;font-size:13px;font-weight:700;color:{_ORANGE};'
+            f'text-align:right;font-family:{_MONO};white-space:nowrap">{u["productivity_pct"]}%</p>'
+            f'<p style="margin:2px 0 0;font-size:9px;color:{_DIM};text-align:right;font-family:{_FONT};white-space:nowrap">productivity</p>'
             f'</td>'
             f'</tr>'
         )
@@ -316,6 +335,26 @@ def _at_risk(at_risk_list, at_risk_detail):
       {rows}
     </table>
     {more}
+  </td>
+</tr>"""
+
+
+def _cta_section(share_url: str) -> str:
+    if not share_url:
+        return ""
+    return f"""
+<tr>
+  <td style="background:{_BG_CARD};padding:20px 28px;text-align:center;border-top:1px solid {_BORDER}">
+    <p style="margin:0 0 14px;font-size:12px;color:{_MUTED};font-family:{_FONT}">
+      Full interactive dashboard with team drill-down and quadrant analysis
+    </p>
+    <a href="{share_url}"
+       style="display:inline-block;background:{_TEAL};color:#0F1115;font-size:13px;
+              font-weight:700;letter-spacing:.04em;padding:10px 32px;border-radius:6px;
+              text-decoration:none;font-family:{_FONT}">
+      View Full Dashboard &rarr;
+    </a>
+    <p style="margin:10px 0 0;font-size:10px;color:{_DIM};font-family:{_FONT}">Link expires in 7 days</p>
   </td>
 </tr>"""
 
@@ -352,7 +391,7 @@ def _tracking_pixel(company: str, report_date: str, pixel_url: str) -> str:
     )
 
 
-def render_email_html(company: str, data: dict, insights: dict, pixel_url: str = "") -> str:
+def render_email_html(company: str, data: dict, insights: dict, pixel_url: str = "", share_url: str = "") -> str:
     """
     Generate an email-safe static HTML digest.
     Table-based layout, inline styles, no JS, no CSS variables, no external fonts.
@@ -389,12 +428,14 @@ def render_email_html(company: str, data: dict, insights: dict, pixel_url: str =
         + _recommendations(insights.get("recommendations", []))
         + (_spacer(2) + _at_risk(at_risk, at_risk_detail) if at_risk else "")
         + _spacer(2)
+        + _cta_section(share_url)
+        + _spacer(2)
         + _footer(company, data["generated_at"])
     )
 
     pixel_html = _tracking_pixel(company, data["generated_at"], pixel_url or TRACKING_PIXEL_URL)
 
-    return f"""<!DOCTYPE html>
+    return _add_bgcolor(f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -402,8 +443,8 @@ def render_email_html(company: str, data: dict, insights: dict, pixel_url: str =
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <title>{company} · Flowace ROI Digest</title>
 </head>
-<body style="margin:0;padding:0;background:{_BG};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
+<body bgcolor="{_BG}" style="margin:0;padding:0;background:{_BG};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
 {_wrap(body)}
 {pixel_html}
 </body>
-</html>"""
+</html>""")

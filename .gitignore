@@ -26,3 +26,5 @@ outputs/
 .idea/
 *.swp
 *.swo
+
+companies.csv

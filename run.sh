@@ -8,6 +8,9 @@
 # API mode:
 #   ./run.sh --api "Acme Corp" --start 2026-06-01 --end 2026-06-26
 #   ./run.sh --api "Acme Corp" --start 2026-06-01 --end 2026-06-26 --token "xxx"
+#
+# Batch mode:
+#   ./run.sh --batch --from-file companies.csv --start 2026-06-01 --end 2026-06-30 --share
 
 set -e
 
@@ -18,7 +21,9 @@ ENV_FILE="$(dirname "$0")/.env"
 
 # ── Load credentials from .env if present ────────────────────────────────────
 if [ -f "$ENV_FILE" ]; then
-  export $(grep -v '^#' "$ENV_FILE" | xargs)
+  set -a
+  source "$ENV_FILE"
+  set +a
 fi
 
 # ── Setup venv if missing ─────────────────────────────────────────────────────
@@ -29,22 +34,23 @@ if [ ! -f "$PYTHON" ]; then
   echo "Dependencies installed."
 fi
 
-# ── Route: API mode vs CSV mode ───────────────────────────────────────────────
-if [ "${1:-}" = "--api" ]; then
-  # API mode: ./run.sh --api "Company" --start YYYY-MM-DD --end YYYY-MM-DD [--token xxx]
+# ── Route: batch mode, API mode, or CSV mode ─────────────────────────────────
+if [ "${1:-}" = "--batch" ]; then
+  shift
+  "$PYTHON" batch_generate.py "$@"
+elif [ "${1:-}" = "--api" ]; then
   COMPANY="${2:-Flowace Tenant}"
   shift 2
-  # Pass all remaining flags straight through to the Python CLI
   "$PYTHON" generate_roi.py --api --company "$COMPANY" "$@"
 else
-  # CSV mode (original behaviour)
   CSV="${1:-}"
   COMPANY="${2:-Flowace Tenant}"
   OUTPUT="${3:-}"
 
   if [ -z "$CSV" ]; then
-    echo "CSV mode:  ./run.sh <csv_file> [company_name] [output_file]"
-    echo "API mode:  ./run.sh --api <company_name> --start YYYY-MM-DD --end YYYY-MM-DD"
+    echo "CSV mode:    ./run.sh <csv_file> [company_name] [output_file]"
+    echo "API mode:    ./run.sh --api <company_name> --start YYYY-MM-DD --end YYYY-MM-DD"
+    echo "Batch mode:  ./run.sh --batch --from-file companies.csv --start YYYY-MM-DD --end YYYY-MM-DD [--share]"
     exit 1
   fi
 

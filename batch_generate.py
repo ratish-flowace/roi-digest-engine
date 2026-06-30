@@ -12,9 +12,9 @@ Usage:
       --start 2026-06-01 --end 2026-06-26 --share --bucket my-bucket
 
 companies.csv format:
-  company,origin
-  Acme Corp,https://acme.flowace.in
-  Beta Inc,https://beta.flowace.in
+  company,origin[,token]
+  Acme Corp,https://acme.flowace.in,<token>
+  Beta Inc,https://beta.flowace.in,<token>
 """
 
 import argparse
@@ -27,19 +27,21 @@ from roi import generate_roi_outputs_from_api, DEFAULT_REGION, DEFAULT_MODEL_ID
 from roi.config import FLOWACE_API_TOKEN, FLOWACE_API_URL, S3_BUCKET
 
 
-def parse_companies(positional: list[str], from_file: str) -> list[tuple[str, str]]:
+def parse_companies(positional: list[str], from_file: str) -> list[tuple[str, str, str]]:
+    # returns list of (company, origin, token) — token may be ""
     companies = []
     if from_file:
         with open(from_file, encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                companies.append((row["company"].strip(), row["origin"].strip()))
+                token = row.get("token", "").strip()
+                companies.append((row["company"].strip(), row["origin"].strip(), token))
     for entry in positional:
         if ":" not in entry:
             print(f"Error: '{entry}' must be in format 'Company Name:https://origin'", file=sys.stderr)
             sys.exit(1)
         name, origin = entry.split(":", 1)
-        companies.append((name.strip(), origin.strip()))
+        companies.append((name.strip(), origin.strip(), ""))
     return companies
 
 
@@ -52,11 +54,11 @@ def main():
     p.add_argument("companies", nargs="*",
                    help="One or more 'Company Name:https://origin.flowace.in' entries")
     p.add_argument("--from-file", default="",
-                   help="CSV file with columns: company, origin")
+                   help="CSV file with columns: company, origin[, token]")
 
     p.add_argument("--start",   required=True, help="Report start date YYYY-MM-DD")
     p.add_argument("--end",     required=True, help="Report end date YYYY-MM-DD")
-    p.add_argument("--token",   default="",    help="Flowace API token. Overrides FLOWACE_API_TOKEN.")
+    p.add_argument("--token",   default="",    help="Fallback API token if not in CSV. Overrides FLOWACE_API_TOKEN.")
     p.add_argument("--api-url", default="",    help=f"API base URL (default: {FLOWACE_API_URL})")
     p.add_argument("--region",  default=DEFAULT_REGION)
     p.add_argument("--model",   default=DEFAULT_MODEL_ID)
@@ -77,13 +79,10 @@ def main():
         print("Error: provide at least one company as arg or via --from-file", file=sys.stderr)
         sys.exit(1)
 
-    token    = args.token or FLOWACE_API_TOKEN
-    base_url = args.api_url or FLOWACE_API_URL
-    bucket   = args.bucket or S3_BUCKET
+    fallback_token = args.token or FLOWACE_API_TOKEN
+    base_url       = args.api_url or FLOWACE_API_URL
+    bucket         = args.bucket or S3_BUCKET
 
-    if not token:
-        print("Error: --token or FLOWACE_API_TOKEN env var required", file=sys.stderr)
-        sys.exit(1)
     if args.share and not bucket:
         print("Error: --bucket or S3_BUCKET env var required for --share", file=sys.stderr)
         sys.exit(1)
@@ -93,7 +92,13 @@ def main():
 
     results = []
 
-    for i, (company, origin) in enumerate(companies, 1):
+    for i, (company, origin, row_token) in enumerate(companies, 1):
+        token = row_token or fallback_token
+        if not token:
+            print(f"  ✗ No token for {company} — skipping", file=sys.stderr)
+            results.append({"company": company, "status": "failed", "error": "no token"})
+            continue
+
         print(f"\n[{i}/{len(companies)}] {company}  ({origin})", file=sys.stderr)
         slug = re.sub(r"[^a-z0-9]", "_", company.lower())
 
@@ -118,11 +123,6 @@ def main():
             f.write(outputs["dashboard"])
         print(f"  Dashboard → {dash_out}", file=sys.stderr)
 
-        if not args.no_email:
-            with open(email_out, "w", encoding="utf-8") as f:
-                f.write(outputs["email"])
-            print(f"  Email     → {email_out}", file=sys.stderr)
-
         share_url = None
         if args.share:
             from roi.uploader import upload_and_sign
@@ -131,6 +131,21 @@ def main():
                 outputs["dashboard"], slug, bucket, args.region, expiry_days * 86400
             )
             print(f"  Shared    → {share_url}  (expires in {expiry_days}d)", file=sys.stderr)
+
+        if not args.no_email:
+            from roi.email_renderer import _cta_section
+            email_html = outputs["email"]
+            if share_url:
+                email_html = email_html.replace(
+                    "</body>",
+                    '<table width="100%" border="0" cellpadding="0" cellspacing="0"'
+                    ' style="background:#0F1115">'
+                    + _cta_section(share_url)
+                    + "</table>\n</body>",
+                )
+            with open(email_out, "w", encoding="utf-8") as f:
+                f.write(email_html)
+            print(f"  Email     → {email_out}", file=sys.stderr)
 
         results.append({
             "company":   company,
@@ -152,7 +167,12 @@ def main():
             print(f"  ✗  {r['company']}  — {r['error']}", file=sys.stderr)
 
     if args.share:
-        print("\nShare links (stdout):")
+        links_file = os.path.join(outputs_dir, "share_links.txt")
+        with open(links_file, "w", encoding="utf-8") as lf:
+            for r in results:
+                if r["status"] == "ok" and r["share_url"]:
+                    lf.write(f"{r['company']}\t{r['share_url']}\n")
+        print(f"\nShare links → {links_file}", file=sys.stderr)
         for r in results:
             if r["status"] == "ok" and r["share_url"]:
                 print(f"{r['company']}\t{r['share_url']}")

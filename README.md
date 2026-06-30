@@ -198,16 +198,25 @@ Events fired automatically when a recipient opens the dashboard:
 
 ### Email digest (tracking pixel)
 
-```bash
-TRACKING_PIXEL_URL=https://your-endpoint/pixel.gif
-```
+Embeds a 1×1 invisible image that fires an `email_open` event to GA4 when the email is opened.
 
-Embeds a 1×1 invisible image. When opened, the email client fetches:
-```
-https://your-endpoint/pixel.gif?company=Acme+Corp&type=email_open&date=18+Jun+2026
-```
+**Setup with Pipedream (free, no infrastructure):**
 
-The pixel URL can point to any endpoint — your own server, a Cloudflare Worker, or a no-code webhook (Zapier, Make).
+1. Sign up at [pipedream.com](https://pipedream.com) → New Workflow → HTTP / Webhook trigger
+2. Add a Node.js code step → paste the contents of `pipedream_pixel.js` from this repo
+3. In Pipedream Settings → Environment Variables, add:
+   ```
+   GA4_MEASUREMENT_ID=G-XXXXXXXXXX
+   GA4_API_SECRET=<from GA4 Admin → Data Streams → Measurement Protocol API secrets>
+   ```
+4. Deploy and copy the trigger URL
+
+5. Add to `.env`:
+   ```
+   TRACKING_PIXEL_URL=https://en<id>.m.pipedream.net
+   ```
+
+When an email is opened, GA4 receives an `email_open` event with `company_name` and `report_date` parameters — visible in Realtime and Explore reports alongside your dashboard events.
 
 ## AWS setup
 
