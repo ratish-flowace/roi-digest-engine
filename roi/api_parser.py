@@ -3,9 +3,10 @@
 import json
 import urllib.request
 import urllib.error
+from collections import defaultdict
 from datetime import datetime
 
-from .parser import _build_metrics
+from .parser import _build_metrics, _safe_pct
 
 _MS = 3_600_000  # ms per hour
 
@@ -109,12 +110,18 @@ def parse_api(
 
     users: list   = []
     inactive: int = 0
+    team_enabled: dict = defaultdict(int)  # provisioned seats per team (active + dormant)
 
     for u in raw:
         active_ms = (u.get("totalClassifiedDuration",   0)
                    + u.get("totalUnClassifiedDuration", 0))
         idle_ms   =  u.get("totalIdleDuration",          0)
         logged_h  = _ms_h(active_ms + idle_ms)
+
+        teams_raw = u.get("teamNames", "").strip()
+        teams = [t.strip() for t in teams_raw.split(";") if t.strip()] or ["No Team"]
+        for t in teams:
+            team_enabled[t] += 1
 
         if logged_h < 0.05:  # same inactivity threshold as parse_csv
             inactive += 1
@@ -138,9 +145,6 @@ def parse_api(
                 + d.get("classified_duration",   0)
                 + d.get("idle_duration",          0)) > 0
         )
-
-        teams_raw = u.get("teamNames", "").strip()
-        teams = [t.strip() for t in teams_raw.split(";") if t.strip()] or ["No Team"]
 
         users.append({
             "name":             u["fullName"],
@@ -177,5 +181,24 @@ def parse_api(
         team["avg_end_min"] = _norm(team["avg_end_min"])
         for ind in team.get("individuals", []):
             ind["avg_end_min"] = _norm(ind["avg_end_min"])
+
+    # Platform coverage — active vs provisioned (active + dormant) seats
+    active_by_team = {t["name"]: t["n"] for t in result["teams"]}
+    team_cov = {}
+    for name, enabled in team_enabled.items():
+        active_n = active_by_team.get(name, 0)
+        team_cov[name] = {
+            "enabled":      enabled,
+            "active":       active_n,
+            "coverage_pct": _safe_pct(active_n, enabled),
+        }
+    total_enabled = len(users) + inactive
+    result["coverage"] = {
+        "enabled":      total_enabled,
+        "active":       len(users),
+        "dormant":      inactive,
+        "coverage_pct": _safe_pct(len(users), total_enabled),
+        "teams":        team_cov,
+    }
 
     return result

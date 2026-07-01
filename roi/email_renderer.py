@@ -175,6 +175,17 @@ def _kpis(org, enriched):
             f'</td>'
         )
 
+    cov     = enriched.get("coverage_pct")
+    dormant = enriched.get("dormant_count", 0)
+    meta_bits = f"{org['n']} active on platform"
+    if cov is not None:
+        meta_bits += f" &nbsp;·&nbsp; {cov}% coverage"
+    if dormant:
+        meta_bits += f" &nbsp;·&nbsp; {dormant} dormant seats"
+    caption = (
+        f'<p style="margin:14px 0 0;font-size:11px;color:{_MUTED};text-align:center;'
+        f'font-family:{_FONT}">{meta_bits}</p>'
+    )
     return f"""
 <tr>
   <td style="background:{_BG_CARD};padding:20px 28px">
@@ -188,6 +199,7 @@ def _kpis(org, enriched):
         {cell("Idle Hours", enriched['org_idle_fmt'], _ORANGE, f"{org['idle_pct']}% of logged")}
       </tr>
     </table>
+    {caption}
   </td>
 </tr>"""
 
@@ -287,7 +299,7 @@ def _recommendations(recs):
     return f"""
 <tr>
   <td style="background:{_BG_CARD};padding:20px 28px">
-    {_section_label("What To Do Next")}
+    {_section_label("Recommended Actions")}
     <table width="100%" border="0" cellpadding="0" cellspacing="0">
       {items}
     </table>
@@ -330,7 +342,7 @@ def _at_risk(at_risk_list, at_risk_detail):
     return f"""
 <tr>
   <td style="background:{_BG_CARD};padding:20px 28px;border-top:1px solid rgba(242,84,37,.3)">
-    {_section_label(f"Employees Needing Attention ({total})")}
+    {_section_label(f"Coaching Opportunities ({total})")}
     <table width="100%" border="0" cellpadding="0" cellspacing="0">
       {rows}
     </table>
@@ -433,18 +445,20 @@ def render_email_html(company: str, data: dict, insights: dict, pixel_url: str =
     period = f"{data['period_start']} – {data['period_end']}"
     nonce  = secrets.token_hex(8)
 
+    # Section order mirrors the dashboard: Exec summary → Key takeaway → Key metrics
+    # (dormant + coverage folded in) → Teams → Coaching → Recommended actions.
     body = (
         _header(company, period, data["generated_at"])
         + _spacer(2)
         + _exec_summary(insights.get("executive_summary", ""))
         + _spacer(2)
-        + _kpis(org, enriched)
-        + _spacer(2)
         + _takeaway(insights.get("key_takeaway", ""), insights.get("financial_insight", ""))
         + _spacer(2)
-        + _teams(teams, org["productivity_pct"])
+        + _kpis(org, enriched)
         + _spacer(2)
         + _recommendations(insights.get("recommendations", []))
+        + _spacer(2)
+        + _teams(teams, org["productivity_pct"])
         + (_spacer(2) + _at_risk(at_risk, at_risk_detail) if at_risk else "")
         + _spacer(2)
         + _cta_section(share_url)

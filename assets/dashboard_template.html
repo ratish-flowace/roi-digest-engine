@@ -242,7 +242,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   line-height: 1;
   margin-bottom: 8px;
 }
-.kpi-value.compact { font-size: 18px; letter-spacing: -0.01em; white-space: nowrap; }
+.kpi-value.compact { font-size: 15px; letter-spacing: 0; white-space: nowrap; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
 .kpi-sub { font-size: 11px; color: var(--text-dim); }
 
 .kpi.teal { --accent: var(--teal); }
@@ -338,6 +338,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   color: var(--text-muted);
   font-family: 'JetBrains Mono', monospace;
   text-align: right;
+  padding-right: 8px;
 }
 .tb-meta strong { color: var(--text); font-weight: 500; }
 .timeline-legend {
@@ -1113,7 +1114,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   <div class="section">
     <div class="section-head">
       <div class="section-title">Quadrant Analysis · Performance Distribution</div>
-      <div class="section-sub">Productivity × Activity matrix · click any team for individual drill-down</div>
+      <div class="section-sub">Productivity × Activity matrix · hover a dot for details, click to view its members</div>
     </div>
     <div class="quadrant-wrap">
       <div class="quadrant-head">
@@ -1126,6 +1127,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
         <div class="quadrant-mode-label" id="qmode-label"><strong>Team view</strong> · 14 teams plotted</div>
         <div id="qmode-back" style="display:none" class="quadrant-back">← Back to teams</div>
       </div>
+      <div id="quadrant-selected" class="quadrant-selected" style="display:none"></div>
       <div class="quadrant-grid">
         <div class="quadrant-plot" id="quadrant-plot"></div>
         <div class="quadrant-stats" id="quadrant-stats"></div>
@@ -1226,11 +1228,11 @@ document.getElementById('meta-members').textContent = `${DATA.organization.n} ac
 // ============================================================
 const org = DATA.organization;
 const kpis = [
-  { label: 'Active Members', value: org.n,                            sub: `+ ${DATA.inactive_count} dormant licenses`, cls: 'white' },
+  { label: 'Active Members', value: org.n,                            sub: `${DATA.coverage ? DATA.coverage.coverage_pct + '% coverage · ' : ''}${DATA.inactive_count} dormant`, cls: 'white' },
   { label: 'Hours Logged',   value: fmt.num(org.logged),              sub: 'across 151 days',                          cls: 'white' },
   { label: 'Activity Rate',  value: org.activity_pct + '%',           sub: 'of logged hours active',                   cls: 'blue' },
   { label: 'Productivity',   value: org.productivity_pct + '%',       sub: 'of active time productive',                cls: 'teal' },
-  { label: 'Idle Exposure',  value: org.idle_pct + '%',               sub: fmt.num(org.idle) + ' h recoverable',        cls: 'orange' },
+  { label: 'Idle Exposure',  value: org.idle_pct + '%',               sub: fmt.num(org.idle) + ' h idle',               cls: 'orange' },
   { label: 'Working Window', value: fmt.timeShort(org.avg_start_min) + ' – ' + fmt.timeShort(org.avg_end_min), sub: 'team-average shift', cls: 'white', compact: true },
 ];
 document.getElementById('kpi-row').innerHTML = kpis.map(k => `
@@ -1258,8 +1260,9 @@ function buildTimeline() {
     ticksHtml.push(`<span class="timeline-tick" style="left:${pct}%">${label}</span>`);
   }
 
-  // Teams sorted by avg start time (earliest first)
+  // Teams sorted by avg start time (earliest first) — top 12 only, to stay readable
   const teams = DATA.teams
+    .slice(0, 12)
     .filter(t => t.avg_start_min && t.avg_end_min)
     .sort((a, b) => a.avg_start_min - b.avg_start_min);
 
@@ -1276,7 +1279,7 @@ function buildTimeline() {
     const opacity = 0.55 + (t.n - minN) / (maxN - minN || 1) * 0.45;
     return `
       <div class="timeline-bar">
-        <div class="tb-name" title="${t.n} members">${t.name}</div>
+        <div class="tb-name" title="${t.n} member${t.n === 1 ? '' : 's'}">${t.name}</div>
         <div class="tb-track">
           <div class="${fillCls}" style="left:${startPct}%;width:${widthPct}%;opacity:${opacity.toFixed(2)}"></div>
         </div>
@@ -1299,7 +1302,7 @@ const drillEl = document.getElementById('drill-content');
 const breadcrumbEl = document.getElementById('breadcrumb');
 
 function showAllTeams(scroll = false) {
-  const teams = DATA.teams;
+  const teams = DATA.teams.slice(0, 12);  // grid shows top 12; quadrant plots all
   const html = teams.map((t, i) => {
     const status = classifyTeam(t.activity_pct);
     const statusLabel = status === 'strong' ? 'Strong' : status === 'ok' ? 'Steady' : 'Watch';
@@ -1475,9 +1478,15 @@ function renderQuadrant(mode = 'teams', teamIdx = null) {
   const cfg = QCFG[mode];
   const teamSelected = teamIdx != null ? DATA.teams[teamIdx] : null;
 
+  // Clear any previously selected-dot info card on re-render
+  const _selEl = document.getElementById('quadrant-selected');
+  if (_selEl) { _selEl.style.display = 'none'; _selEl.innerHTML = ''; }
+
   // ─── Data preparation ───
   let points = [];
   if (mode === 'teams') {
+    // Plot ALL teams (the blob carries every team, with members), so the
+    // distribution is complete and each dot can drill into its own individuals.
     points = DATA.teams.map((t, i) => ({
       x: t.activity_pct, y: t.productivity_pct, n: t.n, idx: i,
       name: t.name, label: t.name,
@@ -1505,7 +1514,10 @@ function renderQuadrant(mode = 'teams', teamIdx = null) {
     const peopleCt = mode === 'teams'
       ? grp.reduce((s, p) => s + p.n, 0)
       : grp.length;
-    const pctPeople = totalPeople ? (peopleCt / totalPeople) * 100 : 0;
+    // In team view the dots are teams, so report the share of TEAMS (not people)
+    const pctPeople = mode === 'teams'
+      ? (totalUnits ? (teamCt / totalUnits) * 100 : 0)
+      : (totalPeople ? (peopleCt / totalPeople) * 100 : 0);
     return { quad: q, teamCt, peopleCt, pctPeople, ideal: QIDEAL[q] };
   });
 
@@ -1517,7 +1529,7 @@ function renderQuadrant(mode = 'teams', teamIdx = null) {
 
   // Dot radius
   const dotRadius = mode === 'teams'
-    ? (n) => { const minN = 2, maxN = 250; return 7 + Math.sqrt((n - minN) / (maxN - minN)) * 14; }
+    ? (n) => { const minN = 2, maxN = 250; return 5 + Math.sqrt((n - minN) / (maxN - minN)) * 12; }
     : () => 4.5;
 
   // SVG parts
@@ -1541,7 +1553,7 @@ function renderQuadrant(mode = 'teams', teamIdx = null) {
   svgParts.push(`<text class="qquad-label stars"     x="${plotRight - cornerPad}" y="${QPLOT.padT + cornerPad + 4}" text-anchor="end">★ STARS</text>`);
   svgParts.push(`<text class="qquad-label efficient" x="${QPLOT.padL + cornerPad}" y="${QPLOT.padT + cornerPad + 4}">✓ EFFICIENT</text>`);
   svgParts.push(`<text class="qquad-label busy"      x="${plotRight - cornerPad}" y="${plotBottom - cornerPad}" text-anchor="end">⚡ BUSY</text>`);
-  svgParts.push(`<text class="qquad-label risk"      x="${QPLOT.padL + cornerPad}" y="${plotBottom - cornerPad}">⚠ AT RISK</text>`);
+  svgParts.push(`<text class="qquad-label risk"      x="${QPLOT.padL + cornerPad}" y="${plotBottom - cornerPad}">◐ COACHING FOCUS</text>`);
 
   // Axis tick marks
   const xTicks = mode === 'teams' ? [40, 50, 60, 70, 80] : [20, 40, 60, 80, 100];
@@ -1566,69 +1578,22 @@ function renderQuadrant(mode = 'teams', teamIdx = null) {
   svgParts.push(`<text class="qaxis-tick" x="${QPLOT.padL - 10}" y="${yThSvg + 3}" text-anchor="end" font-weight="600" fill="var(--text-muted)">${cfg.yTh}%</text>`);
 
   // Data points
+  if (mode === 'teams') window._qpts = points;
   points.forEach((p, i) => {
     const sx = scaleX(p.x, cfg);
     const sy = scaleY(p.y, cfg);
     const r = dotRadius(p.n);
     const cls = `qdot ${p.quad}` + (mode === 'individuals' ? ' ind' : '');
     const tooltip = mode === 'teams'
-      ? `${p.name}\nActivity ${p.x.toFixed(1)}% · Productivity ${p.y.toFixed(1)}%\n${p.n} members\nClick for individual breakdown`
+      ? `${p.name}\nActivity ${p.x.toFixed(1)}% · Productivity ${p.y.toFixed(1)}%\n${p.n} member${p.n === 1 ? '' : 's'}\nClick for individual breakdown`
       : `${p.name}\nActivity ${p.x.toFixed(1)}% · Productivity ${p.y.toFixed(1)}%`;
-    const onclick = mode === 'teams' ? ` onclick="window.openTeamQuadrant(${p.idx})"` : '';
-    svgParts.push(`<circle class="${cls}" cx="${sx}" cy="${sy}" r="${r}" stroke="rgba(0,0,0,0.4)" stroke-width="1"${onclick}><title>${tooltip}</title></circle>`);
+    const onclick = mode === 'teams' ? ` onmouseover="window.qSelect(${i})" onclick="window.openTeamQuadrant(${i})" style="cursor:pointer"` : '';
+    const dotOpacity = mode === 'teams' ? ' fill-opacity="0.82"' : '';
+    svgParts.push(`<circle class="${cls}" cx="${sx}" cy="${sy}" r="${r}"${dotOpacity} stroke="rgba(0,0,0,0.4)" stroke-width="1"${onclick}><title>${tooltip}</title></circle>`);
   });
 
-  // Team labels with anti-collision (only in team mode)
-  if (mode === 'teams') {
-    // Trim "(Operations)" suffix for shorter labels
-    const trimmed = points.map((p, i) => {
-      let label = p.name.replace(/\s*\(Operations\)\s*$/, '').replace(/^Network-/, 'Network ');
-      return { ...p, sx: scaleX(p.x, cfg), sy: scaleY(p.y, cfg), r: dotRadius(p.n), label, i };
-    });
-    // Estimate label width (very rough: 6px per char at 10px font)
-    const labelW = (s) => s.length * 6;
-    const labelH = 12;
-    // Place labels: prefer right of dot, but if collision, try below-right, above-right, far-right
-    const placedBoxes = []; // [x1, y1, x2, y2]
-    const positions = [];
-    trimmed.forEach((p) => {
-      const offsets = [
-        { dx: p.r + 5, dy: 3 },              // right
-        { dx: p.r + 5, dy: 14 },             // below-right
-        { dx: p.r + 5, dy: -8 },             // above-right
-        { dx: -p.r - 5, dy: 3, anchor: 'end' }, // left
-        { dx: -p.r - 5, dy: 14, anchor: 'end' }, // below-left
-        { dx: p.r + 5, dy: 22 },             // farther below-right
-      ];
-      let chosen = offsets[0];
-      for (const o of offsets) {
-        const lx = p.sx + o.dx;
-        const ly = p.sy + o.dy;
-        const w = labelW(p.label);
-        const x1 = o.anchor === 'end' ? lx - w : lx;
-        const x2 = o.anchor === 'end' ? lx : lx + w;
-        const y1 = ly - labelH + 3;
-        const y2 = ly + 3;
-        const collides = placedBoxes.some(b =>
-          x1 < b[2] && x2 > b[0] && y1 < b[3] && y2 > b[1]
-        );
-        if (!collides) { chosen = { ...o, lx, ly, x1, y1, x2, y2 }; break; }
-      }
-      // Fall back to first if all collide
-      if (!chosen.lx) {
-        const o = offsets[0];
-        chosen = { ...o, lx: p.sx + o.dx, ly: p.sy + o.dy };
-        chosen.x1 = chosen.lx; chosen.x2 = chosen.lx + labelW(p.label);
-        chosen.y1 = chosen.ly - labelH + 3; chosen.y2 = chosen.ly + 3;
-      }
-      placedBoxes.push([chosen.x1, chosen.y1, chosen.x2, chosen.y2]);
-      positions.push({ ...p, ...chosen });
-    });
-    positions.forEach(p => {
-      const anchor = p.anchor === 'end' ? ' text-anchor="end"' : '';
-      svgParts.push(`<text class="qdot-label" x="${p.lx}" y="${p.ly}"${anchor} pointer-events="none">${p.label}</text>`);
-    });
-  }
+  // No static team labels — keeps the plot clean. Clicking any dot reveals the
+  // team's name + metrics via window.qSelect; hover shows a quick native tooltip.
 
   // Final SVG
   const svg = `<svg viewBox="0 0 ${QPLOT.width} ${QPLOT.height}" xmlns="http://www.w3.org/2000/svg">${svgParts.join('')}</svg>`;
@@ -1638,8 +1603,8 @@ function renderQuadrant(mode = 'teams', teamIdx = null) {
   const QLABEL = {
     stars:     { name: '★ Stars',     desc: 'high active · high productive', insight: 'The ideal — protect and replicate their workflow patterns.' },
     efficient: { name: '✓ Efficient', desc: 'low active · high productive',  insight: 'Quality is there. Lift engagement to graduate into Stars.' },
-    busy:      { name: '⚡ Busy',     desc: 'high active · low productive',  insight: 'Engagement is fine but output quality slipping — workflow review.' },
-    risk:      { name: '⚠ At Risk',   desc: 'low active · low productive',   insight: 'Compound underperformance — needs the most focused intervention.' },
+    busy:      { name: '⚡ Busy',     desc: 'high active · low productive',  insight: 'Engagement is strong — a workflow review can lift output quality.' },
+    risk:      { name: '◐ Coaching Focus', desc: 'low active · low productive', insight: 'The highest-leverage place to start a manager conversation.' },
   };
   const statsHTML = stats.map(s => {
     const lbl = QLABEL[s.quad];
@@ -1685,7 +1650,7 @@ function renderQuadrant(mode = 'teams', teamIdx = null) {
     modeLabel.innerHTML = `<strong>Team view</strong> · ${points.length} teams plotted`;
     backBtn.style.display = 'none';
     headTitle.textContent = 'How your teams distribute across the matrix';
-    tagline.textContent = "Each team plotted by activity (x) against productivity (y). Thresholds set at Medibuddy's organizational average — quadrants show team performance relative to your own baseline. Dot size reflects team headcount. Click any team to drill into individual-level distribution.";
+    tagline.textContent = "Each team plotted by activity (x) against productivity (y). Thresholds set at Medibuddy's organizational average — quadrants show team performance relative to your own baseline. Dot size reflects team headcount. Hover a dot for details; click to view its members.";
   } else {
     modeLabel.innerHTML = `<strong>${teamSelected.name}</strong> · ${points.length} individuals plotted`;
     backBtn.style.display = 'inline-block';
@@ -1698,11 +1663,17 @@ function renderQuadrant(mode = 'teams', teamIdx = null) {
   const riskStat = stats.find(s => s.quad === 'risk');
   let bottomText;
   if (mode === 'teams') {
+    const totalTeams = points.length;
+    const starsCt = starsStat.teamCt, riskCt = riskStat.teamCt;
     const starsAbove = starsStat.pctPeople >= QIDEAL.stars;
-    const riskAbove = riskStat.pctPeople > QIDEAL.risk;
-    bottomText = `<span class="strong">${starsAbove ? 'Strong distribution.' : 'Room to grow.'}</span> ${starsStat.pctPeople.toFixed(1)}% of your workforce sits in the Stars quadrant — ${starsAbove ? `above the ${QIDEAL.stars}% ideal.` : `below the ${QIDEAL.stars}% ideal by ${(QIDEAL.stars - starsStat.pctPeople).toFixed(1)} pts.`} ${riskAbove ? `The lever is the <span class="strong">At Risk quadrant (${riskStat.pctPeople.toFixed(1)}%)</span> — Network Ops, Insurance, and Surgery anchor it. Lifting half their members into Efficient would close the gap.` : 'At Risk exposure is contained.'}`;
+    const atRiskPeople = (DATA.at_risk || []).length;
+    const riskNames = buckets.risk.slice(0, 3).map(p => p.name).join(', ');
+    const riskClause = riskCt
+      ? `<span class="strong">${riskCt} team${riskCt === 1 ? '' : 's'}</span> sit${riskCt === 1 ? 's' : ''} in the Coaching Focus quadrant${riskNames ? ` (${riskNames}${buckets.risk.length > 3 ? '…' : ''})` : ''} — a good place to start a manager conversation.`
+      : `No teams sit in the Coaching Focus quadrant${atRiskPeople ? `, though ${atRiskPeople} individual${atRiskPeople === 1 ? '' : 's'} across all teams would benefit from coaching — see the section above.` : '.'}`;
+    bottomText = `<span class="strong">${starsAbove ? 'Strong distribution.' : 'Room to grow.'}</span> ${starsCt} of ${totalTeams} teams sit in the Stars quadrant (${starsStat.pctPeople.toFixed(1)}%) — ${starsAbove ? `at or above the ${QIDEAL.stars}% ideal.` : `below the ${QIDEAL.stars}% ideal.`} ${riskClause}`;
   } else {
-    bottomText = `Within <span class="strong">${teamSelected.name}</span>, ${starsStat.pctPeople.toFixed(1)}% of members are in Stars and ${riskStat.pctPeople.toFixed(1)}% sit in At Risk. Use this to identify 1:1 candidates and replicate top-performer workflow.`;
+    bottomText = `Within <span class="strong">${teamSelected.name}</span>, ${starsStat.pctPeople.toFixed(1)}% of members are in Stars and ${riskStat.pctPeople.toFixed(1)}% sit in Coaching Focus. Use this to spot who would benefit from a 1:1 and to replicate top-performer workflows.`;
   }
   document.getElementById('quadrant-bottomline').innerHTML = `
     <div class="bb-label">Quadrant insight</div>
@@ -1715,6 +1686,19 @@ window.openTeamQuadrant = (idx) => {
   renderQuadrant('individuals', idx);
   // Scroll just the section header into view
   document.getElementById('qhead-title').scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+// Click a dot → reveal its team + metrics (no static labels; keeps the plot clean)
+window.qSelect = (i) => {
+  const p = (window._qpts || [])[i];
+  if (!p) return;
+  const el = document.getElementById('quadrant-selected');
+  if (!el) return;
+  el.innerHTML = `<span class="qsel-dot ${p.quad}"></span>`
+    + `<strong>${p.name}</strong> · Activity ${p.x.toFixed(1)}% · Productivity ${p.y.toFixed(1)}%`
+    + ` · ${p.n} member${p.n === 1 ? '' : 's'}`
+    + ` <span class="qsel-hint">— click to view members</span>`;
+  el.style.display = '';
 };
 
 // Back button binding

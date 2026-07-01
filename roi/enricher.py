@@ -1,6 +1,6 @@
 """Pre-compute derived intelligence from raw metrics (no LLM needed)."""
 
-from .parser import _fh, _clock
+from .parser import _fh, _clock, _num_in
 
 
 def enrich(data: dict) -> dict:
@@ -22,13 +22,34 @@ def enrich(data: dict) -> dict:
             (org["productivity_pct"] - u["productivity_pct"]), 1
         )
 
-    idle_recovery_h = round(org["idle"] * (org["activity_pct"] / 100), 1)
+    # Unlockable capacity — the recoverable slice of idle if idle dropped to the
+    # org activity ratio. A strict SUBSET of total idle, never the full idle figure.
+    unlockable_capacity_h = round(org["idle"] * (org["activity_pct"] / 100), 1)
+
+    # Platform coverage / dormant seats (present in API mode; absent in CSV mode)
+    coverage = data.get("coverage")
+    coverage_pct = coverage["coverage_pct"] if coverage else None
+    under_covered_teams = []
+    if coverage:
+        for name, c in coverage["teams"].items():
+            if name == "No Team":  # junk bucket, not a real team
+                continue
+            if c["enabled"] >= 3 and c["coverage_pct"] < 60:
+                under_covered_teams.append({"name": name, **c})
+        under_covered_teams.sort(key=lambda x: x["coverage_pct"])
+        under_covered_teams = under_covered_teams[:5]
 
     return {
         **data,
         "enriched": {
-            "idle_recovery_h":    idle_recovery_h,
-            "idle_recovery_fmt":  _fh(idle_recovery_h),
+            "unlockable_capacity_h":   unlockable_capacity_h,
+            "unlockable_capacity_fmt": f"{_num_in(unlockable_capacity_h)} hours",
+            "capacity_value":          None,  # seam: set when a loaded-cost rate exists
+            "idle_recovery_h":         unlockable_capacity_h,   # legacy alias
+            "idle_recovery_fmt":       f"{_num_in(unlockable_capacity_h)} hours",
+            "dormant_count":           data.get("inactive_count", 0),
+            "coverage_pct":            coverage_pct,
+            "under_covered_teams":     under_covered_teams,
             "top_team":           teams[0]["name"]  if teams else "",
             "bottom_team":        teams[-1]["name"] if len(teams) > 1 else "",
             "top_team_prod":      teams[0]["productivity_pct"]  if teams else 0,

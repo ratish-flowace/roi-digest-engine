@@ -64,6 +64,15 @@ def _clock(mins):
 def _safe_pct(num, den):
     return round(num / den * 100, 1) if den else 0.0
 
+def _num_in(x):
+    """Indian-grouped integer, matching the UI's toLocaleString('en-IN'). 134493 → '1,34,493'"""
+    s = str(int(round(x)))
+    if len(s) <= 3:
+        return s
+    head, tail = s[:-3], s[-3:]
+    head = re.sub(r"(?<=\d)(?=(\d\d)+$)", ",", head)
+    return f"{head},{tail}"
+
 
 # ── CSV → metrics ─────────────────────────────────────────────────────────────
 
@@ -139,8 +148,8 @@ def _build_metrics(meta: dict, users: list, inactive: int) -> dict:
     org = {
         "n": n, "logged": ol, "active": oa, "idle": oi,
         "productive": op, "unproductive": ou, "neutral": on,
-        "activity_pct":     _avg([u["activity_pct"]     for u in users]),
-        "productivity_pct": _avg([u["productivity_pct"] for u in users]),
+        "activity_pct":     _safe_pct(oa, ol),
+        "productivity_pct": _safe_pct(op, oa),
         "idle_pct":         _safe_pct(oi, ol),
         "unproductive_pct": _safe_pct(ou, oa),
         "avg_start_min":    _avg([u["avg_start_min"] for u in users]),
@@ -165,8 +174,8 @@ def _build_metrics(meta: dict, users: list, inactive: int) -> dict:
             "name": tname, "n": tn,
             "logged": tl, "active": ta, "idle": ti,
             "productive": tp, "unproductive": tu, "neutral": tneu,
-            "activity_pct":     _avg([m["activity_pct"]     for m in members]),
-            "productivity_pct": _avg([m["productivity_pct"] for m in members]),
+            "activity_pct":     _safe_pct(ta, tl),
+            "productivity_pct": _safe_pct(tp, ta),
             "idle_pct":         _safe_pct(ti, tl),
             "unproductive_pct": _safe_pct(tu, ta),
             "avg_start_min":    _avg([m["avg_start_min"] for m in members]),

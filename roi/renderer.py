@@ -13,6 +13,17 @@ _TEMPLATE_PATH = os.path.join(
 )
 
 
+def _logo_data_uri() -> str:
+    import base64
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "logo.png"
+    )
+    if not os.path.exists(path):
+        return ""
+    with open(path, "rb") as f:
+        return "data:image/png;base64," + base64.b64encode(f.read()).decode()
+
+
 def _load_template():
     """
     Extract CSS, body HTML, and JS from dashboard_template.html.
@@ -34,6 +45,8 @@ def _load_template():
             raise ValueError(f"dashboard_template.html: required marker not found: {_name!r}")
 
     css  = "".join(lines[style_open+1:style_close])
+    # Scrub client name from dead benchmark CSS class selectors (widget is stripped below)
+    css  = re.sub(r"[Mm]edibuddy", "self", css)
     body = "".join(lines[style_close+1:blob_line])
     js   = "".join(lines[js_open+1:])
     for s in ["</html>", "</body>", "</script>"]:
@@ -127,7 +140,7 @@ function renderAtRiskRow(u) {
       </div>
       <div style="font-size:11px;color:#8A929E">${u.teams.join(', ')}</div>
     </div>
-    <div class="at-risk-detail" style="font-size:12px;color:#D4D8DD;line-height:1.5">${detail || 'Below company average on both productivity and activity.'}</div>
+    <div class="at-risk-detail" style="font-size:12px;color:#D4D8DD;line-height:1.5">${detail || 'A coaching opportunity — below the org average on both productivity and activity.'}</div>
     <div style="text-align:right">
       <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px">
         <span style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#F25425">${u.productivity_pct.toFixed(1)}%</span>
@@ -153,7 +166,7 @@ function renderAtRisk() {
   const total   = list.length;
   const showing = atRiskExpanded ? total : Math.min(AT_RISK_PAGE_SIZE, total);
 
-  subEl.textContent = `${total} employee${total > 1 ? 's' : ''} below company average on both metrics`;
+  subEl.textContent = `${total} coaching opportunit${total > 1 ? 'ies' : 'y'} · below the org average on both activity and productivity`;
   rowsEl.innerHTML  = list.slice(0, showing).map(renderAtRiskRow).join('');
 
   const rows = rowsEl.querySelectorAll('[style*="border-bottom"]');
@@ -187,6 +200,14 @@ _RESPONSIVE_CSS = """\
 
 .quadrant-grid { grid-template-columns:1fr 340px; }
 @media(max-width:960px) { .quadrant-grid { grid-template-columns:1fr; } }
+
+/* Quadrant: selected-dot info card (shown on click) */
+.quadrant-selected { margin:2px 0 14px;padding:10px 14px;background:#1A1D23;border:1px solid #2A2F38;border-radius:8px;font-size:12.5px;color:#D4D8DD;line-height:1.5; }
+.quadrant-selected strong { color:#fff; }
+.qsel-dot { display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:8px;vertical-align:middle; }
+.qsel-dot.stars { background:#00D4AA; } .qsel-dot.efficient { background:#4A90E2; }
+.qsel-dot.busy { background:#F25425; } .qsel-dot.risk { background:#F25425; }
+.qsel-hint { color:#00D4AA;font-size:11px;white-space:nowrap; }
 
 .at-risk-row { display:grid;grid-template-columns:200px 1fr 130px;align-items:center;gap:16px;padding:13px 0;border-bottom:1px solid #1F2329; }
 @media(max-width:700px) { .at-risk-row { grid-template-columns:1fr auto;gap:10px; } .at-risk-detail { display:none; } }
@@ -308,6 +329,16 @@ def _build_tracking_html(company: str, report_date: str, measurement_id: str) ->
 def render_html(company: str, data: dict, insights: dict, ga4_id: str = "") -> str:
     css, body, js = _load_template()
 
+    # Use the current assets/logo.png (same source as the email) instead of the
+    # stale logo baked into the template
+    logo_uri = _logo_data_uri()
+    if logo_uri:
+        body = re.sub(
+            r'(<div class="logo">\s*<img[^>]*src=")data:image/png;base64,[^"]*(")',
+            lambda m: m.group(1) + logo_uri + m.group(2),
+            body, count=1,
+        )
+
     org = data["organization"]
 
     # ── Company name substitutions ────────────────────────────────────────────
@@ -366,39 +397,49 @@ def render_html(company: str, data: dict, insights: dict, ga4_id: str = "") -> s
         for i, rec in enumerate(recommendations[:3])
     )
 
-    new_sections = (
-        (f'<div class="section" style="margin-bottom:40px">'
-         f'<div class="section-head">'
-         f'<div class="section-title">Executive Summary</div>'
-         f'<div class="section-sub">What leadership needs to know</div></div>'
-         f'<div class="exec-summary-inner" style="background:#1A1D23;border:1px solid #2A2F38;'
-         f'border-radius:10px;padding:28px 32px">'
-         f'<div style="font-size:15px;color:#D4D8DD;line-height:1.8;max-width:900px">'
-         f'{executive_summary}</div></div></div>' if executive_summary else "")
-        + f'<div style="margin-bottom:40px;padding:18px 24px;background:rgba(0,212,170,.07);'
-          f'border:1px solid rgba(0,212,170,.3);border-radius:10px">'
-          f'<div style="font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;'
-          f'color:#00D4AA;margin-bottom:8px">KEY TAKEAWAY</div>'
-          f'<div style="font-size:14px;color:#D4D8DD;line-height:1.6">{key_takeaway}</div>'
-          + (f'<div style="font-size:12px;color:#8A929E;margin-top:6px">{financial_insight}</div>'
-             if financial_insight else "")
-          + "</div>"
-        + (f'<div class="section"><div class="section-head">'
-           f'<div class="section-title">What To Do Next</div>'
-           f'<div class="section-sub">Three specific actions, ordered by impact</div></div>'
-           f'<div class="rec-grid">{rec_cards_html}</div></div>'
-           if rec_cards_html else "")
+    # ── Wins / value first: executive summary + key takeaway + adoption nudges ──
+    exec_block = (
+        f'<div class="section" style="margin-bottom:40px">'
+        f'<div class="section-head">'
+        f'<div class="section-title">Executive Summary</div>'
+        f'<div class="section-sub">The value Flowace surfaced this month</div></div>'
+        f'<div class="exec-summary-inner" style="background:#1A1D23;border:1px solid #2A2F38;'
+        f'border-radius:10px;padding:28px 32px">'
+        f'<div style="font-size:15px;color:#D4D8DD;line-height:1.8;max-width:900px">'
+        f'{executive_summary}</div></div></div>' if executive_summary else ""
+    )
+    takeaway_block = (
+        f'<div style="margin-bottom:40px;padding:18px 24px;background:rgba(0,212,170,.07);'
+        f'border:1px solid rgba(0,212,170,.3);border-radius:10px">'
+        f'<div style="font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;'
+        f'color:#00D4AA;margin-bottom:8px">KEY TAKEAWAY</div>'
+        f'<div style="font-size:14px;color:#D4D8DD;line-height:1.6">{key_takeaway}</div>'
+        + (f'<div style="font-size:12px;color:#8A929E;margin-top:6px">{financial_insight}</div>'
+           if financial_insight else "")
+        + "</div>"
     )
 
+    # Recommended actions — placed right after coaching, before the quadrant visual
+    actions_block = (
+        f'<div class="section"><div class="section-head">'
+        f'<div class="section-title">Recommended actions</div>'
+        f'<div class="section-sub">Where to focus next, ordered by impact</div></div>'
+        f'<div class="rec-grid">{rec_cards_html}</div></div>'
+        if rec_cards_html else ""
+    )
+
+    # Wins / value first: exec summary + key takeaway. Dormant seats + coverage now
+    # live in the org-snapshot KPI, so there's no separate adoption section.
+    top_sections = exec_block + takeaway_block
     first_section = body.find('  <div class="section">')
     if first_section > 0:
-        body = body[:first_section] + new_sections + body[first_section:]
+        body = body[:first_section] + top_sections + body[first_section:]
 
-    # At-risk panel (JS-driven)
+    # Coaching-opportunities panel (JS-driven)
     at_risk_panel = (
         '<div class="section" id="at-risk-section" style="display:none">'
         '<div class="section-head">'
-        '<div class="section-title">Employees Needing Attention</div>'
+        '<div class="section-title">Coaching opportunities</div>'
         '<div class="section-sub" id="at-risk-sub"></div></div>'
         '<div style="background:#1A1D23;border:1px solid rgba(242,84,37,.3);'
         'border-radius:10px;padding:0 24px">'
@@ -410,13 +451,19 @@ def render_html(company: str, data: dict, insights: dict, ga4_id: str = "") -> s
         'font-family:inherit" id="at-risk-toggle-btn"></button>'
         '</div></div></div>'
     )
+    # Recommended actions — directly below the organizational snapshot
+    timeline_marker = body.find('  <!-- ─── Working hours timeline')
+    if actions_block and timeline_marker > 0:
+        body = body[:timeline_marker] + actions_block + "\n" + body[timeline_marker:]
+
+    # Coaching opportunities — before the quadrant (which trails as a supporting visual)
     quadrant_section = body.find('  <!-- ─── Quadrant analysis')
     if quadrant_section > 0:
         body = body[:quadrant_section] + at_risk_panel + "\n" + body[quadrant_section:]
 
-    # ── Cap teams grid at 12 — full list still present in individual drill-down data ──
+    # ── Teams grid is capped to 12 in JS; the blob carries ALL teams (with members)
+    #    so the quadrant can plot every team and drill into any of them ──
     all_teams_total = len(data["teams"])
-    display_teams   = data["teams"][:12] if all_teams_total > 12 else data["teams"]
     if all_teams_total > 12:
         body = body.replace(
             "Click any team to see individual-level data",
@@ -489,37 +536,31 @@ def render_html(company: str, data: dict, insights: dict, ga4_id: str = "") -> s
         "const statusLabel = status === 'strong' ? 'Strong' : status === 'ok' ? 'Steady' : 'Watch';",
         "const statusLabel = status === 'strong' ? 'Leading' : status === 'ok' ? 'On Track' : 'Watch';",
     )
+    # Name wraps naturally with the status dot trailing inline after the last word
     js = js.replace(
         '<div class="tc-name">${t.name}</div>',
-        '<div class="tc-name" style="display:flex;align-items:center;gap:4px">'
-        '${t.name}${ragDot(ragProd(t.productivity_pct), "Productivity vs org avg")}</div>',
+        '<div class="tc-name">${t.name} '
+        '${ragDot(ragProd(t.productivity_pct), "Productivity vs org avg")}</div>',
     )
-    # Keep headcount pinned top-right regardless of name length
+    # Headcount pinned top-right, top-aligned with the first line of the name
     js = js.replace(
         '<div class="tc-headcount"><strong class="num">${t.n}</strong> members</div>',
-        '<div class="tc-headcount" style="flex-shrink:0;white-space:nowrap;margin-left:10px">'
-        '<strong class="num">${t.n}</strong> members</div>',
+        '<div class="tc-headcount" style="flex-shrink:0;white-space:nowrap;margin-left:10px;padding-top:2px">'
+        '<strong class="num">${t.n}</strong> member${t.n === 1 ? "" : "s"}</div>',
     )
     js = js.replace(
         '<div class="tc-head">\n          <div>\n',
-        '<div class="tc-head">\n          <div style="min-width:0;flex:1">\n',
+        '<div class="tc-head" style="align-items:flex-start">\n          <div style="min-width:0;flex:1">\n',
     )
     js = js.replace(
         '</div>\n        <div class="tc-metrics">',
         '</div>\n        ${getTeamInsight(t.name) ? `<div style="font-size:11px;color:#8A929E;font-style:italic;margin:6px 0 2px;line-height:1.4">${getTeamInsight(t.name)}</div>` : ""}\n        <div class="tc-metrics">',
     )
 
-    # Quadrant label truncation — cap visible SVG text, tooltip (p.name) stays full
-    js = js.replace(
-        "return { ...p, sx: scaleX(p.x, cfg), sy: scaleY(p.y, cfg), r: dotRadius(p.n), label, i };",
-        "if (label.length > 30) label = label.slice(0, 28) + '…';\n"
-        "      return { ...p, sx: scaleX(p.x, cfg), sy: scaleY(p.y, cfg), r: dotRadius(p.n), label, i };",
-    )
-
     # Prepend RAG/insight helpers; append at-risk init call
     js = _INJECTED_JS + js + "\n\n// Render at-risk panel on load\nrenderAtRisk();"
 
-    blob = json.dumps({**data, "teams": display_teams}, separators=(",", ":"))
+    blob = json.dumps(data, separators=(",", ":"))
     tracking_html = _build_tracking_html(company, data["generated_at"], ga4_id or GA4_MEASUREMENT_ID)
 
     return f"""<!DOCTYPE html>
