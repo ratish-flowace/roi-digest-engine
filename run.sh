@@ -37,11 +37,11 @@ fi
 # ── Route: batch mode, API mode, or CSV mode ─────────────────────────────────
 if [ "${1:-}" = "--batch" ]; then
   shift
-  "$PYTHON" batch_generate.py "$@"
+  "$PYTHON" scripts/batch_generate.py "$@"
 elif [ "${1:-}" = "--api" ]; then
   COMPANY="${2:-Flowace Tenant}"
   shift 2
-  "$PYTHON" generate_roi.py --api --company "$COMPANY" "$@"
+  "$PYTHON" scripts/generate_roi.py --api --company "$COMPANY" "$@"
 else
   CSV="${1:-}"
   COMPANY="${2:-Flowace Tenant}"
@@ -62,5 +62,5 @@ else
   SLUG=$(echo "$COMPANY" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/_/g')
   OUTPUT="${OUTPUT:-$(dirname "$0")/outputs/${SLUG}_roi.html}"
 
-  "$PYTHON" generate_roi.py "$CSV" --company "$COMPANY" --output "$OUTPUT"
+  "$PYTHON" scripts/generate_roi.py "$CSV" --company "$COMPANY" --output "$OUTPUT"
 fi

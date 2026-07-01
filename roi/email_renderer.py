@@ -57,7 +57,7 @@ _MONO     = "'Courier New', Courier, monospace"
 
 def _get_logo_src() -> str:
     import base64
-    png = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logo.png")
+    png = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "logo.png")
     if not os.path.exists(png):
         return ""
     with open(png, "rb") as f:

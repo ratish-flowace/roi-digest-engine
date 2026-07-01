@@ -74,7 +74,7 @@ def main():
     args = p.parse_args()
 
     slug        = re.sub(r"[^a-z0-9]", "_", args.company.lower())
-    outputs_dir = os.path.join(os.path.dirname(__file__), "outputs")
+    outputs_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "outputs")
     dash_out    = args.output or os.path.join(outputs_dir, f"{slug}_roi.html")
     email_out   = os.path.join(outputs_dir, f"{slug}_email.html")
 

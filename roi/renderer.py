@@ -9,7 +9,7 @@ from .config import GA4_MEASUREMENT_ID
 # Template is one level up from this file (project root)
 _TEMPLATE_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "dashboard_template.html",
+    "assets", "dashboard_template.html",
 )
 
 
@@ -24,10 +24,14 @@ def _load_template():
     with open(_TEMPLATE_PATH, encoding="utf-8") as f:
         lines = f.readlines()
 
-    style_open  = next(i for i,l in enumerate(lines) if "<style>" in l)
-    style_close = next(i for i,l in enumerate(lines) if "</style>" in l)
-    blob_line   = next(i for i,l in enumerate(lines) if "data-blob" in l)
-    js_open     = next(i for i,l in enumerate(lines) if l.strip() == "<script>")
+    style_open  = next((i for i,l in enumerate(lines) if "<style>"    in l),       None)
+    style_close = next((i for i,l in enumerate(lines) if "</style>"   in l),       None)
+    blob_line   = next((i for i,l in enumerate(lines) if "data-blob"  in l),       None)
+    js_open     = next((i for i,l in enumerate(lines) if l.strip() == "<script>"), None)
+    for _name, _val in [("style_open", style_open), ("style_close", style_close),
+                        ("blob_line", blob_line), ("js_open", js_open)]:
+        if _val is None:
+            raise ValueError(f"dashboard_template.html: required marker not found: {_name!r}")
 
     css  = "".join(lines[style_open+1:style_close])
     body = "".join(lines[style_close+1:blob_line])
@@ -412,8 +416,8 @@ def render_html(company: str, data: dict, insights: dict, ga4_id: str = "") -> s
 
     # ── Cap teams grid at 12 — full list still present in individual drill-down data ──
     all_teams_total = len(data["teams"])
+    display_teams   = data["teams"][:12] if all_teams_total > 12 else data["teams"]
     if all_teams_total > 12:
-        data["teams"] = data["teams"][:12]
         body = body.replace(
             "Click any team to see individual-level data",
             f"Top 12 of {all_teams_total} teams · click any card to drill down",
@@ -515,7 +519,7 @@ def render_html(company: str, data: dict, insights: dict, ga4_id: str = "") -> s
     # Prepend RAG/insight helpers; append at-risk init call
     js = _INJECTED_JS + js + "\n\n// Render at-risk panel on load\nrenderAtRisk();"
 
-    blob = json.dumps(data, separators=(",", ":"))
+    blob = json.dumps({**data, "teams": display_teams}, separators=(",", ":"))
     tracking_html = _build_tracking_html(company, data["generated_at"], ga4_id or GA4_MEASUREMENT_ID)
 
     return f"""<!DOCTYPE html>

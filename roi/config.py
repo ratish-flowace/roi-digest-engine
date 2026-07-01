@@ -10,3 +10,4 @@ FLOWACE_API_TOKEN  = os.getenv("FLOWACE_API_TOKEN",  "")
 FLOWACE_API_URL    = os.getenv("FLOWACE_API_URL",    "https://api.flowace.in/prod")
 
 S3_BUCKET = os.getenv("S3_BUCKET", "")
+API_KEY   = os.getenv("API_KEY",   "")

@@ -22,6 +22,7 @@ import csv
 import os
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from roi import generate_roi_outputs_from_api, DEFAULT_REGION, DEFAULT_MODEL_ID
 from roi.config import FLOWACE_API_TOKEN, FLOWACE_API_URL, S3_BUCKET
@@ -43,6 +44,48 @@ def parse_companies(positional: list[str], from_file: str) -> list[tuple[str, st
         name, origin = entry.split(":", 1)
         companies.append((name.strip(), origin.strip(), ""))
     return companies
+
+
+def _process_one(company, origin, token, args, base_url, bucket, outputs_dir) -> dict:
+    if not token:
+        print(f"  ✗  {company} — no token, skipping", file=sys.stderr)
+        return {"company": company, "status": "failed", "error": "no token"}
+
+    slug = re.sub(r"[^a-z0-9]", "_", company.lower())
+    try:
+        outputs = generate_roi_outputs_from_api(
+            token, args.start, args.end, company,
+            origin=origin, base_url=base_url,
+            region=args.region, model_id=args.model, ga4_id=args.ga4_id,
+        )
+
+        dash_out = os.path.join(outputs_dir, f"{slug}_roi.html")
+        with open(dash_out, "w", encoding="utf-8") as f:
+            f.write(outputs["dashboard"])
+        print(f"  Dashboard → {dash_out}", file=sys.stderr)
+
+        share_url = None
+        if args.share:
+            from roi.uploader import upload_and_sign
+            expiry_days = min(args.share_expiry, 7)
+            share_url = upload_and_sign(
+                outputs["dashboard"], slug, bucket, args.region, expiry_days * 86400
+            )
+            print(f"  Shared    → {share_url}  (expires in {expiry_days}d)", file=sys.stderr)
+
+        if not args.no_email:
+            from roi.email_renderer import append_cta
+            email_html = append_cta(outputs["email"], share_url or "")
+            email_out = os.path.join(outputs_dir, f"{slug}_email.html")
+            with open(email_out, "w", encoding="utf-8") as f:
+                f.write(email_html)
+            print(f"  Email     → {email_out}", file=sys.stderr)
+
+        print(f"  ✓  {company}", file=sys.stderr)
+        return {"company": company, "status": "ok", "dashboard": dash_out, "share_url": share_url}
+    except Exception as e:
+        print(f"  ✗  {company}: {e}", file=sys.stderr)
+        return {"company": company, "status": "failed", "error": str(e)}
 
 
 def main():
@@ -87,64 +130,25 @@ def main():
         print("Error: --bucket or S3_BUCKET env var required for --share", file=sys.stderr)
         sys.exit(1)
 
-    outputs_dir = os.path.join(os.path.dirname(__file__), "outputs")
+    outputs_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "outputs")
     os.makedirs(outputs_dir, exist_ok=True)
 
-    results = []
+    resolved = [(c, o, t or fallback_token) for c, o, t in companies]
 
-    for i, (company, origin, row_token) in enumerate(companies, 1):
-        token = row_token or fallback_token
-        if not token:
-            print(f"  ✗ No token for {company} — skipping", file=sys.stderr)
-            results.append({"company": company, "status": "failed", "error": "no token"})
-            continue
+    seen_slugs: dict[str, str] = {}
+    for c, _, _ in resolved:
+        s = re.sub(r"[^a-z0-9]", "_", c.lower())
+        if s in seen_slugs:
+            print(f"Error: '{c}' and '{seen_slugs[s]}' produce the same slug '{s}'", file=sys.stderr)
+            sys.exit(1)
+        seen_slugs[s] = c
 
-        print(f"\n[{i}/{len(companies)}] {company}  ({origin})", file=sys.stderr)
-        slug = re.sub(r"[^a-z0-9]", "_", company.lower())
-
-        try:
-            outputs = generate_roi_outputs_from_api(
-                token, args.start, args.end, company,
-                origin=origin,
-                base_url=base_url,
-                region=args.region,
-                model_id=args.model,
-                ga4_id=args.ga4_id,
-            )
-        except Exception as e:
-            print(f"  ✗ Failed: {e}", file=sys.stderr)
-            results.append({"company": company, "status": "failed", "error": str(e)})
-            continue
-
-        dash_out  = os.path.join(outputs_dir, f"{slug}_roi.html")
-        email_out = os.path.join(outputs_dir, f"{slug}_email.html")
-
-        with open(dash_out, "w", encoding="utf-8") as f:
-            f.write(outputs["dashboard"])
-        print(f"  Dashboard → {dash_out}", file=sys.stderr)
-
-        share_url = None
-        if args.share:
-            from roi.uploader import upload_and_sign
-            expiry_days = min(args.share_expiry, 7)
-            share_url = upload_and_sign(
-                outputs["dashboard"], slug, bucket, args.region, expiry_days * 86400
-            )
-            print(f"  Shared    → {share_url}  (expires in {expiry_days}d)", file=sys.stderr)
-
-        if not args.no_email:
-            from roi.email_renderer import append_cta
-            email_html = append_cta(outputs["email"], share_url or "")
-            with open(email_out, "w", encoding="utf-8") as f:
-                f.write(email_html)
-            print(f"  Email     → {email_out}", file=sys.stderr)
-
-        results.append({
-            "company":   company,
-            "status":    "ok",
-            "dashboard": dash_out,
-            "share_url": share_url,
-        })
+    workers = min(len(resolved), 5)
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        results = list(executor.map(
+            lambda item: _process_one(item[0], item[1], item[2], args, base_url, bucket, outputs_dir),
+            resolved,
+        ))
 
     # ── Summary ───────────────────────────────────────────────────────────────
     print("\n" + "─" * 60, file=sys.stderr)
