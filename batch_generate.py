@@ -133,16 +133,8 @@ def main():
             print(f"  Shared    → {share_url}  (expires in {expiry_days}d)", file=sys.stderr)
 
         if not args.no_email:
-            from roi.email_renderer import _cta_section
-            email_html = outputs["email"]
-            if share_url:
-                email_html = email_html.replace(
-                    "</body>",
-                    '<table width="100%" border="0" cellpadding="0" cellspacing="0"'
-                    ' style="background:#0F1115">'
-                    + _cta_section(share_url)
-                    + "</table>\n</body>",
-                )
+            from roi.email_renderer import append_cta
+            email_html = append_cta(outputs["email"], share_url or "")
             with open(email_out, "w", encoding="utf-8") as f:
                 f.write(email_html)
             print(f"  Email     → {email_out}", file=sys.stderr)

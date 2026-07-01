@@ -5,7 +5,6 @@ import os
 import re
 
 from .config import GA4_MEASUREMENT_ID
-from .parser import _fh, _clock
 
 # Template is one level up from this file (project root)
 _TEMPLATE_PATH = os.path.join(
@@ -228,9 +227,11 @@ def _build_tracking_html(company: str, report_date: str, measurement_id: str) ->
   }});
   (function() {{
     var fired = new Set();
+    var loaded = false;
+    requestAnimationFrame(function() {{ requestAnimationFrame(function() {{ loaded = true; }}); }});
     var obs = new IntersectionObserver(function(entries) {{
       entries.forEach(function(e) {{
-        if (e.isIntersecting && !fired.has(e.target)) {{
+        if (e.isIntersecting && !fired.has(e.target) && loaded) {{
           fired.add(e.target);
           var t = (e.target.querySelector('.section-title') || {{}}).textContent || 'unknown';
           gtag('event', 'scroll_section', {{
@@ -246,6 +247,7 @@ def _build_tracking_html(company: str, report_date: str, measurement_id: str) ->
   (function() {{
     var elapsed = 0, ticks = 0;
     var timer = setInterval(function() {{
+      if (document.hidden) return;
       elapsed += 30; ticks += 1;
       gtag('event', 'time_on_page', {{
         'company_name': '{safe_company}',

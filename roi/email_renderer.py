@@ -375,14 +375,14 @@ def _footer(company, generated_at):
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def _tracking_pixel(company: str, report_date: str, pixel_url: str) -> str:
+def _tracking_pixel(company: str, report_date: str, pixel_url: str, nonce: str = "") -> str:
     if not pixel_url:
         return ""
     url = (
         f"{pixel_url.rstrip('?&')}"
         f"?company={quote_plus(company)}"
-        f"&type=email_open"
         f"&date={quote_plus(report_date)}"
+        + (f"&nonce={nonce}" if nonce else "")
     )
     return (
         f'<img src="{url}" width="1" height="1" alt="" border="0" '
@@ -391,12 +391,30 @@ def _tracking_pixel(company: str, report_date: str, pixel_url: str) -> str:
     )
 
 
+def append_cta(email_html: str, share_url: str) -> str:
+    """Append CTA button after the email body, inside a properly centered 600px wrapper."""
+    if not share_url:
+        return email_html
+    wrapper = (
+        f'<table width="100%" border="0" cellpadding="0" cellspacing="0"'
+        f' style="background:{_BG}">'
+        f'<tr><td align="center" style="padding:0 16px 24px">'
+        f'<table width="600" border="0" cellpadding="0" cellspacing="0"'
+        f' style="max-width:600px;width:100%">'
+        + _cta_section(share_url)
+        + '</table></td></tr></table>'
+    )
+    return _add_bgcolor(email_html.replace("</body>", wrapper + "\n</body>"))
+
+
 def render_email_html(company: str, data: dict, insights: dict, pixel_url: str = "", share_url: str = "") -> str:
     """
     Generate an email-safe static HTML digest.
     Table-based layout, inline styles, no JS, no CSS variables, no external fonts.
     Compatible with Gmail, Outlook, Apple Mail.
     """
+    import secrets
+
     org      = data["organization"]
     enriched = data["enriched"]
     teams    = data["teams"]
@@ -413,6 +431,7 @@ def render_email_html(company: str, data: dict, insights: dict, pixel_url: str =
             )
 
     period = f"{data['period_start']} – {data['period_end']}"
+    nonce  = secrets.token_hex(8)
 
     body = (
         _header(company, period, data["generated_at"])
@@ -433,7 +452,7 @@ def render_email_html(company: str, data: dict, insights: dict, pixel_url: str =
         + _footer(company, data["generated_at"])
     )
 
-    pixel_html = _tracking_pixel(company, data["generated_at"], pixel_url or TRACKING_PIXEL_URL)
+    pixel_html = _tracking_pixel(company, data["generated_at"], pixel_url or TRACKING_PIXEL_URL, nonce)
 
     return _add_bgcolor(f"""<!DOCTYPE html>
 <html lang="en">
