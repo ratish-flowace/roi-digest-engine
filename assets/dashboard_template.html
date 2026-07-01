@@ -323,6 +323,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   height: 12px;
   background: var(--border-soft);
   border-radius: 3px;
+  overflow: hidden;
 }
 .tb-fill {
   position: absolute;
@@ -1270,8 +1271,8 @@ function buildTimeline() {
   const minN = Math.min(...teams.map(t => t.n));
 
   const barsHtml = teams.map(t => {
-    const startPct = (t.avg_start_min - TIMELINE_START) / TIMELINE_RANGE * 100;
-    const endPct = (t.avg_end_min - TIMELINE_START) / TIMELINE_RANGE * 100;
+    const startPct = Math.max(0, Math.min(100, (t.avg_start_min - TIMELINE_START) / TIMELINE_RANGE * 100));
+    const endPct   = Math.max(0, Math.min(100, (t.avg_end_min   - TIMELINE_START) / TIMELINE_RANGE * 100));
     const widthPct = Math.max(2, endPct - startPct);
     const status = classifyTeam(t.activity_pct);
     const fillCls = status === 'watch' ? 'tb-fill watch' : 'tb-fill';
